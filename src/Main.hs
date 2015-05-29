@@ -1,10 +1,16 @@
-import Numeric.LinearAlgebra
-import Numeric.GSL
+{-# LANGUAGE OverloadedStrings #-}
+import XYZParser (xyzParser)
+import Data.Attoparsec.ByteString.Char8
+import qualified Data.ByteString as B
+import System.Environment
+import Data.List
+
 
 main :: IO ()
 main = do
-    let w = 4 |> [2,0,-3,0::Double]
-    let m = (3><4) [1..] :: Matrix Double
-    putStrLn (show (w <.> w))
-    putStrLn (show (m <> w))
-    putStrLn (show (sqrt . eigenvalues $ m <> trans m))
+    (path:_) <- getArgs
+    progName <- getProgName
+    file <- B.readFile $ path
+    case parseOnly xyzParser file of
+      Left err -> putStrLn $ "Error while parsing .xyz file: " ++ err
+      Right xyz -> mapM_ print xyz
