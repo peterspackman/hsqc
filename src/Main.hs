@@ -4,13 +4,10 @@ import Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString as B
 import System.Environment
 import Data.List
+import HartreeFock
 
 
 main :: IO ()
 main = do
-    (path:_) <- getArgs
-    progName <- getProgName
-    file <- B.readFile $ path
-    case parseOnly xyzParser file of
-      Left err -> putStrLn $ "Error while parsing .xyz file: " ++ err
-      Right xyz -> mapM_ print xyz
+    putStrLn $ "HF (H2): " ++ (show (hartreeFock [0, 1.4] [1,1]))
+    putStrLn $ "Szabo energy: " ++ (show (-1.8310))
