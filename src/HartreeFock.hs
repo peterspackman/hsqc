@@ -3,6 +3,9 @@ module HartreeFock where
 
 import Numeric.LinearAlgebra
 import qualified Numeric.GSL.Special as S
+import Control.Applicative
+
+allPairs a b = (,) <$> a <*> b
 
 
 class GaussianBasisFunction a where
@@ -20,6 +23,14 @@ data STONG =
     STONG { d :: [Double] -- contraction coefficients
           , g :: [Gaussian1S] -- primative gaussian functions
           } deriving Show
+
+instance Eq Gaussian1S where
+    (==) a b =
+      (alpha a == alpha b) && (center a == center b)
+
+instance Eq STONG where
+    (==) a b =
+      (g a == g b) && (d a == d b)
 
 sto3GH center = sto3G center 1.24
 sto3GHe center = sto3G center 2.0925
@@ -49,7 +60,9 @@ term3 al be r1 r2 =
 instance GaussianBasisFunction Gaussian1S where
     -- OVERLAP INTEGRAL
     overlap a b = 
-      i * n * (term3 al be r1 r2)
+      if a == b
+        then 1.0
+      else i * n * (term3 al be r1 r2)
       where
         al = alpha a
         be = alpha b
@@ -114,7 +127,7 @@ instance GaussianBasisFunction Gaussian1S where
 tupleSTO b =
     zip (d b) (g b)
 
-overlapList (g1:g2:[]) = overlap g1 g2
+overlapList (g1:g2:[]) = if g1 == g2 then 1.0 else overlap g1 g2
 kineticList (g1:g2:[]) = kineticEnergy g1 g2
 twoElectronList (g1:g2:g3:g4:[]) = twoElectron g1 g2 g3 g4
 nuclearList z r (g1:g2:[]) = nuclearAttraction z r g1 g2
@@ -124,7 +137,8 @@ contraction bs integral =
     where 
       f (ds, gs) = (product ds) * (integral gs)
 
-overlapIntegral bs = contraction bs overlapList
+allEq xs = and $ map (== head xs) (tail xs)
+overlapIntegral bs = if allEq bs then 1.0 else contraction bs overlapList
 twoElectronIntegral b1 b2 b3 b4 = contraction [b1, b2, b3, b4] twoElectronList
 kineticIntegral bs = contraction bs kineticList
 nuclearIntegral z r b1 b2 = contraction [b1, b2] (nuclearList z r)
@@ -135,6 +149,14 @@ overlapMatrix basis =
 kineticMatrix basis =
   reshape (length basis) $ fromList $ map kineticIntegral (sequence [basis, basis])
 
+nuclearMatrix zr basis=
+  reshape (length basis) $ fromList $ map f (sequence [basis, basis])
+  where 
+    integral (z,r) (b1, b2) = nuclearIntegral z r b1 b2
+    v zr bs = sum $ map integral unzip (sequence [zr, bs])
+    f bs = if allEq bs
+            then v
+           else 2.0 * v
  
 
 hartreeFock r z = 
