@@ -6,7 +6,8 @@ module Element ( Element
                , atomicNumber
                , elements
                , elementFromNumber
-               , elementFromSymbol ) where
+               , elementFromSymbol
+               , symbol) where
 
 data Element = Element { atomicNumber :: Int
                        , symbol :: String

@@ -1,164 +1,125 @@
-{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE MultiParamTypeClasses, BangPatterns #-}
 module HartreeFock where
+import Data.List (sortBy)
+import Numeric.LinearAlgebra hiding (Element)
+import Data.Array.Repa hiding ((++), sum, map, zipWith, replicate, reshape, toList)
+import qualified Data.Array.Repa as Repa (map, reshape, toList)
+import BasisFunction
+import Element
+import Matrix (row, col)
+import Debug.Trace
 
-import Numeric.LinearAlgebra
-import qualified Numeric.GSL.Special as S
-import Control.Applicative
+maxIterations = 1000
 
-allPairs a b = (,) <$> a <*> b
+data System = System { atoms :: [Atom] 
+                     , densityMatrix :: Array U DIM2 Double
+                     , integrals :: Array U DIM4 Double
+                     , coreHamiltonian :: Matrix Double
+                     , transformation :: Matrix Double
+                     , totalEnergy :: Double
+                     , electronicEnergy :: Double
+                     } deriving Show
 
+data Atom = Atom { center :: Double
+                 , element :: Element
+                 }
+instance Show Atom where
+    show a = "(" ++ (Element.symbol $ element a) ++ ": " ++ show (center a) ++ ")"
 
-class GaussianBasisFunction a where
-    overlap :: a -> a -> Double
-    nuclearAttraction :: Int -> Double -> a -> a -> Double
-    kineticEnergy :: a -> a -> Double
-    twoElectron :: a -> a -> a -> a -> Double
-
-data Gaussian1S = 
-  Gaussian1S { alpha :: Double
-             , center :: Double
-             } deriving Show
-
-data STONG =
-    STONG { d :: [Double] -- contraction coefficients
-          , g :: [Gaussian1S] -- primative gaussian functions
-          } deriving Show
-
-instance Eq Gaussian1S where
+instance Eq Atom where
     (==) a b =
-      (alpha a == alpha b) && (center a == center b)
+      (center a == center b) &&
+      (atomicNumber $ element a) == (atomicNumber $ element b)
 
-instance Eq STONG where
-    (==) a b =
-      (g a == g b) && (d a == d b)
+gMatrix :: (Array U DIM4 Double) -> (Array U DIM2 Double) -> (Array U DIM2 Double)
+gMatrix twoElectron p =
+    computeS $ fromFunction (extent p) vals
+    where
+      vals = (\ix -> sumAllS $ (p *^ (((coulomb ix) -^ (Repa.map (*0.5) (corr ix))))))
+      coulomb ix =  slice twoElectron (Z:.((col ix)::Int):.((row ix)::Int):.All:.All)
+      corr ix =  slice twoElectron (Z:.((col ix)::Int):.All:.All:.((row ix)::Int))
 
-sto3GH center = sto3G center 1.24
-sto3GHe center = sto3G center 2.0925
-
-sto3G center zeta =
-    STONG [0.444635, 0.535328, 0.154329] 
-          [ Gaussian1S (zeta**2 * 0.109818) center
-          , Gaussian1S (zeta**2 * 0.405771) center
-          , Gaussian1S (zeta**2 * 2.22766) center]
-
-basis c 1 = sto3GH c
-basis c 2 = sto3GHe c
-
-normalizationTerm :: Double -> Double -> Double
-normalizationTerm alpha beta = 
-    (2 * alpha / pi) ** (0.75) * (2 * beta / pi) ** (0.75)
-
-term2 :: Double -> Double -> Double
-term2 alpha beta =
-  (pi / (alpha + beta)) ** (1.5)
-
-
-term3 al be r1 r2 =
-  exp ( abs (r1 - r2)**2 * (-al * be) / (al+ be))
-
-
-instance GaussianBasisFunction Gaussian1S where
-    -- OVERLAP INTEGRAL
-    overlap a b = 
-      if a == b
-        then 1.0
-      else i * n * (term3 al be r1 r2)
-      where
-        al = alpha a
-        be = alpha b
-        r1 = center a
-        r2 = center b
-        n = normalizationTerm al be
-        i = term2 al be
-    -- NUCLEAR ATTRACTION
-    nuclearAttraction z r g1 g2 =
-      if abs(t) < 0.0000001
-        then x
-      else y
-      where
-        al = alpha g1
-        be = alpha g2
-        r1 = center g1
-        r2 = center g2
-        rp = (al * r1 + be * r2) / (al + be)
-        n = normalizationTerm al be
-        x = (n * (-2.0) * pi / (al + be) * (term3 al be r1 r2) * (fromIntegral z))
-        t = (al + be)*abs(rp - r)^2
-        y = (x * 0.5 * sqrt (pi / t) * S.erf (sqrt t))
-    -- KINETIC ENERGY INT
-    kineticEnergy a b =
-      n * x * y * (3.0 - 2.0 * al * be/((al + be)/((abs (r1 - r2))**2))) * (al * be / (al + be))
-      where
-        al = alpha a
-        be = alpha b
-        c = al * be
-        r1 = center a
-        r2 = center b
-        n = normalizationTerm al be
-        x = term2 al be
-        y = term3 al be r1 r2
-
-    -- TWO ELECTRON INT
-    twoElectron g1 g2 g3 g4 =
-      if (abs t) > 0.00000001
-        then x
-      else y
-      where
-        al = alpha g1
-        be = alpha g2
-        gamma = alpha g3
-        del = alpha g4
-        r1 = center g1
-        r2 = center g2
-        r3 = center g3
-        r4 = center g4
-        rp = (al * r1 + be * r2)/(al + be)
-        rq = (gamma * r3 + del * r4)/(gamma + del)
-        t = (al + be)*(gamma * del) / (al + be + gamma + del)*(abs rp -rq)**2
-
-        x = (2 * al/pi)**0.75 * (2 * be/pi)**0.75
-           *(2 * gamma/pi)**0.75 * (2 * del/pi)**0.75
-           *(2 * pi**2.5)
-           /((al + be)*(gamma+del)* sqrt (al + be + gamma + del))
-           * exp (-al * be/(al + be) * (abs (r1 -r2))**2 - gamma*del/(gamma+del)*(abs (r3 - r4))**2)
-
-        y = x * 0.5 * (sqrt (pi/t)) * S.erf (sqrt t)
-
-tupleSTO b =
-    zip (d b) (g b)
-
-overlapList (g1:g2:[]) = if g1 == g2 then 1.0 else overlap g1 g2
-kineticList (g1:g2:[]) = kineticEnergy g1 g2
-twoElectronList (g1:g2:g3:g4:[]) = twoElectron g1 g2 g3 g4
-nuclearList z r (g1:g2:[]) = nuclearAttraction z r g1 g2
-
-contraction bs integral =
-    sum $ map (f . unzip) (sequence $ map tupleSTO bs)
+fockMatrix :: Matrix Double -> Array U DIM2 Double -> Matrix Double
+fockMatrix hcore g = 
+    hcore + gmat
     where 
-      f (ds, gs) = (product ds) * (integral gs)
+    (Z:.rows:.columns) = extent g
+    gmat = reshape rows (fromList (Repa.toList g))
 
-allEq xs = and $ map (== head xs) (tail xs)
-overlapIntegral bs = if allEq bs then 1.0 else contraction bs overlapList
-twoElectronIntegral b1 b2 b3 b4 = contraction [b1, b2, b3, b4] twoElectronList
-kineticIntegral bs = contraction bs kineticList
-nuclearIntegral z r b1 b2 = contraction [b1, b2] (nuclearList z r)
 
-overlapMatrix basis =
-  reshape (length basis) $ fromList $ map overlapIntegral (sequence [basis, basis])
 
-kineticMatrix basis =
-  reshape (length basis) $ fromList $ map kineticIntegral (sequence [basis, basis])
+scf :: System -> System
+scf System { atoms = a
+           , densityMatrix = p
+           , integrals = t
+           , coreHamiltonian = h
+           , transformation = x
+           } =
+    System a newDensityMatrix t h x totalEnergy electronicEnergy 
+    where
+      g = gMatrix t p
+      (Z:.n:._) = extent p
+      !pmat = reshape n (fromList (Repa.toList p))
+      !f = fockMatrix h g 
+      electronicEnergy = 0.5 * sumElements (trans pmat * (h + f))
+      nuc = nuclearEnergy a
+      totalEnergy = nuc + electronicEnergy
+      c = coefficientMatrix f x
+      !newDensityMatrix = pMatrix c
 
-nuclearMatrix zr basis=
-  reshape (length basis) $ fromList $ map f (sequence [basis, basis])
-  where 
-    integral (z,r) (b1, b2) = nuclearIntegral z r b1 b2
-    v zr bs = sum $ map integral unzip (sequence [zr, bs])
-    f bs = if allEq bs
-            then v
-           else 2.0 * v
- 
+nuclearEnergy :: [Atom] -> Double
+nuclearEnergy atoms =
+    sum (energy <$> [(a,b) | a <- atoms, b <- tail atoms, not (a == b)])
+    where
+      energy (a,b) = (fromIntegral ((charge a) * (charge b))) / (abs (center a) - (center b))
+      charge a = atomicNumber $ element a
 
-hartreeFock r z = 
-  zipWith (basis) r z
+sortedEigenvectors m =
+    (fromColumns (snd . unzip $ sortedVals))
+  where
+    (values, vectors) = eig m
+    sortedVals = sortBy cmpFirst (zip (toList values) (toColumns vectors)) 
+    cmpFirst (a1,b1) (a2,b2) = compare (realPart a1) (realPart a2)
 
+
+coefficientMatrix :: Matrix Double -> Matrix Double -> Matrix Double
+coefficientMatrix f x =
+    (x <> realC')
+    where
+      e = eig f'
+      c' = sortedEigenvectors f'
+      f' = (ctrans x) <> f <> x
+      realC' = mapMatrix realPart (c')
+
+pMatrix :: Matrix Double -> Array U DIM2 Double
+pMatrix cMatrix =
+    computeS $ fromFunction (Z:.((rows cMatrix)::Int):.((cols cMatrix)::Int)) vals
+    where
+      vals = (\(Z:.i:.j) -> 2.0 * (cMatrix @@> (i, 0)) * (cMatrix @@> (j, 0)))
+
+
+initSystem r z = 
+    (System atoms p t h x 0.0 0.0)
+  where
+    basis = zipWith (basisFunction) r z
+    o = overlapMatrix basis
+    n = length basis
+    p = fromListUnboxed (Z:.(n::Int):.(n::Int)) (replicate (n*n) 0 ::[Double])
+    k = kineticMatrix basis
+    v = nuclearMatrix (zip z r) basis
+    h = k + v
+    (s, u) = eigSH o
+    x = u <> diag(mapVector (** (-0.5)) s ) <> (ctrans u)
+    t = twoElectronMatrix basis
+    elements = map elementFromNumber z
+    atoms = zipWith Atom r elements 
+
+converge :: (a -> a -> Bool) -> [a] -> a
+converge p (x:ys@(y:_))
+    | p x y     = y
+    | otherwise = converge p ys
+
+calculateSCF system eps =
+    converge (\a b -> (abs ((totalEnergy a) - (totalEnergy b)) < eps)) s
+    where
+      s = take maxIterations (iterate scf system)
