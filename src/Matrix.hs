@@ -21,6 +21,7 @@ kroneckerDelta a b
   | a == b = 1
   | otherwise = 0
 
+randomMatrix :: Int -> Int -> Matrix2D Double
 randomMatrix rows columns =
     randomishDoubleArray (Z:. (rows::Int):. (columns::Int)) 0.0 100.0 4
 
@@ -50,7 +51,6 @@ textRepresentation sep list = intercalate sep unpackedWords
 format sep f m = intersperse sep (map f (toList m)) 
 
 formatFixed d x = format " " (printf ("%."++show d++"f")) $ x
-
 
 mmultP :: Monad m
        => Array U DIM2 Double

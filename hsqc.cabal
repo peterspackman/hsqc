@@ -19,6 +19,10 @@ executable hsqc
   main-is:             Main.hs
   -- other-modules:       
   -- other-extensions:    
+  ghc-options:
+    -O2
+    -threaded
+    -fprof-auto
   build-depends:       base >=4.6 && <4.9,
                        split >= 0.2, 
                        random >= 1.0,
@@ -26,6 +30,7 @@ executable hsqc
                        hmatrix >=0.16.0.0,
                        hmatrix-gsl >=0.16.0.0,
                        hmatrix-special >=0.3.0.0,
+                       mtl >= 2.2.0,
                        bytestring >= 0.10.0.0,
                        attoparsec >= 0.12.0.0,
                        repa >= 3.0.0.0,

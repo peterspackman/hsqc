@@ -52,6 +52,11 @@ basisFunction center atomicNumber
   | atomicNumber == 2 = sto3GHe center
   | otherwise = sto3GH center -- Hydrogen by default
 
+contraction bs integral =
+    sum $ map (f . unzip) (sequence $ map tupleSTO bs)
+    where 
+      f (ds, gs) = (product ds) * (integral gs)
+
 
 normalizationTerm alpha beta = 
     (2 * alpha / pi) ** (0.75) * (2 * beta / pi) ** (0.75)
@@ -61,112 +66,102 @@ term2 alpha beta =
   (pi / (alpha + beta)) ** (1.5)
 
 
+term3 :: Double -> Double -> Double -> Double -> Double
 term3 a b r1 r2 =
   exp ( abs (r1-r2)^2 * ((-a)*b)/(a+ b))
 
 
 instance GaussianBasisFunction Gaussian1S where
     -- OVERLAP INTEGRAL
-    overlap a b = 
-      if a == b
-        then 1.0
-      else i * n * (term3 al be r1 r2)
+    overlap Gaussian1S {alpha = a, center = r1}
+            Gaussian1S {alpha = b, center = r2}
+            = 
+      i * n * (term3 a b r1 r2)
       where
-        al = alpha a
-        be = alpha b
-        r1 = center a
-        r2 = center b
-        n = normalizationTerm al be
-        i = term2 al be
+        n = normalizationTerm a b
+        i = term2 a b
     -- NUCLEAR ATTRACTION
-    nuclearAttraction z r g1 g2 =
+    nuclearAttraction z r 
+      Gaussian1S {alpha = a, center = r1}
+      Gaussian1S {alpha = b, center = r2}
+      =
       if abs(t) < 0.0000001
         then x
       else y
       where
-        al = alpha g1
-        be = alpha g2
-        r1 = center g1
-        r2 = center g2
-        rp = (al * r1 + be * r2) / (al + be)
-        n = normalizationTerm al be
-        x = (n * (-2.0) * pi / (al + be) * (term3 al be r1 r2) * (fromIntegral z))
-        t = (al + be)*abs(rp - r)^2
+        rp = (a * r1 + b * r2) / (a + b)
+        n = normalizationTerm a b
+        x = (n * (-2.0) * pi / (a + b) * (term3 a b r1 r2) * (fromIntegral z))
+        t = (a + b)*abs(rp - r)^2
         y = (x * 0.5 * sqrt (pi / t) * S.erf (sqrt t))
     -- KINETIC ENERGY INTEGRAL
-    kineticEnergy g1 g2 =
-      n * x * y * (3.0 - 2.0 * al * be/((al + be)/((abs (r1 - r2))^2))) * (al * be / (al + be))
+    kineticEnergy 
+      Gaussian1S {alpha = a, center = r1}
+      Gaussian1S {alpha = b, center = r2}
+      =
+      n * x * y * (3.0 - 2.0 * a * b/((a + b)/((abs (r1 - r2))^2))) * (a * b / (a + b))
       where
-        al = alpha g1
-        be = alpha g2
-        c = al * be
-        r1 = center g1
-        r2 = center g2
-        n = normalizationTerm al be
-        x = term2 al be
-        y = term3 al be r1 r2
+        n = normalizationTerm a b
+        x = term2 a b
+        y = term3 a b r1 r2
 
     -- TWO ELECTRON INT
-    twoElectron g1 g2 g3 g4 =
+    twoElectron 
+      Gaussian1S {alpha = a, center = ra}
+      Gaussian1S {alpha = b, center = rb}
+      Gaussian1S {alpha = c, center = rc}
+      Gaussian1S {alpha = d, center = rd}
+      =
       if (abs t) < 0.00000001
         then (x)
       else y
       where
-        a = alpha g1
-        b = alpha g2
-        gamma = alpha g3
-        del = alpha g4
-        ra = center g1
-        rb = center g2
-        rc = center g3
-        rd = center g4
         rp = (a*ra + b*rb)/(a + b)
-        rq = (gamma*rc + del*rd)/(gamma + del)
-        t = ((abs (rp - rq))**2) * (a+b) * (gamma+del) / (a+b+gamma+del)
+        rq = (c*rc + d*rd)/(c + d)
+        t = ((abs (rp - rq))**2) * (a+b) * (c +d) / (a + b+ c + d)
 
         x = (2 * a/pi)**0.75 * (2 * b/pi)**0.75
-           *(2 * gamma/pi)**0.75 * (2 * del/pi)**0.75
-           *(2 * pi**2.5)
-           /((a + b)*(gamma+del)* sqrt (a + b + gamma + del))
-           * exp ((-a) * b/(a + b) * (abs (ra -rb))**2 - gamma*del/(gamma+del)*(abs (rc - rd))**2)
+          * (2 * c/pi)**0.75 * (2 * d/pi)**0.75
+          * (2 * pi**2.5)
+          / ((a + b)*(c+d)* sqrt (a + b + c + d))
+          * exp ((-a) * b/(a + b) * (abs (ra -rb))**2 - c*d/(c+d)*(abs (rc - rd))**2)
 
         y = (x * 0.5 * sqrt (pi / t) * S.erf (sqrt t))
 
 tupleSTO b =
     zip (d b) (g b)
 
-overlapList (g1:g2:[]) = if g1 == g2 then 1.0 else overlap g1 g2
-kineticList (g1:g2:[]) = kineticEnergy g1 g2
-twoElectronList (g1:g2:g3:g4:[]) = twoElectron g1 g2 g3 g4
-nuclearList z r (g1:g2:[]) = nuclearAttraction z r g1 g2
 
-contraction bs integral =
-    sum $ map (f . unzip) (sequence $ map tupleSTO bs)
-    where 
-      f (ds, gs) = (product ds) * (integral gs)
-
-allEq xs = and $ map (== head xs) (tail xs)
-
-overlapb b1 b2 = contraction [b1,b2] overlapList
-kineticb b1 b2 = contraction [b1, b2] kineticList
-twoElectronb b1 b2 b3 b4 = contraction [b1,b2,b3,b4] twoElectronList
-kineticIntegral bs = contraction bs kineticList
-nuclearIntegral z r b1 b2 = contraction [b1, b2] (nuclearList z r)
 
 overlapMatrix basis =
-  reshape (length basis) $ fromList $ overlapb <$> basis <*> basis
+  reshape (length basis) $ fromList $ overlapIntegral <$> basis <*> basis
+  where
+    overlapIntegral b1 b2 = contraction [b1,b2] overlapList
+    overlapList (g1:g2:[])
+      | g1 == g2 = 1.0
+      | otherwise = overlap g1 g2
+
 
 kineticMatrix basis =
-  reshape (length basis) $ fromList $ kineticb <$> basis <*> basis
+  reshape (length basis) $ fromList $ kineticIntegral <$> basis <*> basis
+  where
+    kineticIntegral b1 b2 = contraction [b1, b2] kineticList
+    kineticList (g1:g2:[]) = kineticEnergy g1 g2
  
+
 nuclearMatrix zr basis =
-    reshape (length basis) $ fromList $ map (v zr) (allPairs basis basis)
+  reshape (length basis) $ fromList $ map (v zr) (allPairs basis basis)
   where 
     integral ((z, r),(b1, b2)) = nuclearIntegral z r b1 b2
     v zr bs = sum $ map integral (allPairs zr [bs])
+    nuclearIntegral z r b1 b2 = contraction [b1, b2] (nuclearList z r)
+    nuclearList z r (g1:g2:[]) = nuclearAttraction z r g1 g2
+
 
 twoElectronMatrix basis =
-    fromListUnboxed (Z:.n:.n:.n:.n) t
-    where
-      t = twoElectronb <$> basis <*> basis <*> basis <*> basis
-      n = length basis :: Int
+  fromListUnboxed (Z:.n:.n:.n:.n) t
+  where
+    t = twoElectronIntegral <$> basis <*> basis <*> basis <*> basis
+    n = length basis :: Int
+    twoElectronIntegral b1 b2 b3 b4 = contraction [b1,b2,b3,b4] twoElectronList
+    twoElectronList (g1:g2:g3:g4:[]) = twoElectron g1 g2 g3 g4
