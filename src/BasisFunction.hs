@@ -2,31 +2,36 @@ module BasisFunction ( basisFunction
                      , kineticMatrix
                      , nuclearMatrix
                      , twoElectronMatrix
+                     , twoElectronMatrix'
                      , overlapMatrix
                      ) where
 
 import Numeric.LinearAlgebra
-import Data.Array.Repa hiding ((++), sum, map, zipWith, replicate, reshape, toList)
+import Data.Array.Repa hiding ((!), (++), sum, map, zipWith, replicate, reshape, toList)
 import qualified Data.Array.Repa as Repa (map, reshape, toList)
 import qualified Numeric.GSL.Special as S
+import Matrix (force)
 import Control.Applicative
+import Data.Vector ((!))
+import qualified Data.Vector as V
+import qualified Point3D as P
 
 allPairs a b = (,) <$> a <*> b
 
 class GaussianBasisFunction a where
     overlap :: a -> a -> Double
-    nuclearAttraction :: Int -> Double -> a -> a -> Double
+    nuclearAttraction :: Int -> P.Point3D -> a -> a -> Double
     kineticEnergy :: a -> a -> Double
     twoElectron :: a -> a -> a -> a -> Double
 
 data Gaussian1S = 
   Gaussian1S { alpha :: Double
-             , center :: Double
+             , center :: P.Point3D
              } deriving Show
 
 data STONG =
-    STONG { d :: [Double] -- contraction coefficients
-          , g :: [Gaussian1S] -- primative gaussian functions
+    STONG { coefficients :: [Double] -- contraction coefficients
+          , gaussians :: [Gaussian1S] -- primative gaussian functions
           } deriving Show
 
 instance Eq Gaussian1S where
@@ -35,7 +40,7 @@ instance Eq Gaussian1S where
 
 instance Eq STONG where
     (==) a b =
-      (g a == g b) && (d a == d b)
+      (gaussians a == gaussians b) && (coefficients a == coefficients b)
 
 
 sto3GH center = sto3G center 1.24
@@ -53,7 +58,7 @@ basisFunction center atomicNumber
   | otherwise = sto3GH center -- Hydrogen by default
 
 contraction bs integral =
-    sum $ map (f . unzip) (sequence $ map tupleSTO bs)
+    sum $ map (f . unzip) (sequence $ map tuplesFromSTO bs)
     where 
       f (ds, gs) = (product ds) * (integral gs)
 
@@ -66,13 +71,14 @@ term2 alpha beta =
   (pi / (alpha + beta)) ** (1.5)
 
 
-term3 :: Double -> Double -> Double -> Double -> Double
+term3 :: Double -> Double -> P.Point3D -> P.Point3D -> Double
 term3 a b r1 r2 =
-  exp ( abs (r1-r2)^2 * ((-a)*b)/(a+ b))
+  exp ( (P.euclidean2 r1 r2) * ((-a) * b)/(a + b))
 
 
 instance GaussianBasisFunction Gaussian1S where
     -- OVERLAP INTEGRAL
+    {-# INLINE overlap #-}
     overlap Gaussian1S {alpha = a, center = r1}
             Gaussian1S {alpha = b, center = r2}
             = 
@@ -81,6 +87,7 @@ instance GaussianBasisFunction Gaussian1S where
         n = normalizationTerm a b
         i = term2 a b
     -- NUCLEAR ATTRACTION
+    {-# INLINE nuclearAttraction #-}
     nuclearAttraction z r 
       Gaussian1S {alpha = a, center = r1}
       Gaussian1S {alpha = b, center = r2}
@@ -89,23 +96,25 @@ instance GaussianBasisFunction Gaussian1S where
         then x
       else y
       where
-        rp = (a * r1 + b * r2) / (a + b)
+        rp = (P.add (a `P.dmult` r1) (b `P.dmult` r2)) `P.ddiv` (a + b)
         n = normalizationTerm a b
         x = (n * (-2.0) * pi / (a + b) * (term3 a b r1 r2) * (fromIntegral z))
-        t = (a + b)*abs(rp - r)^2
+        t = (a + b) * (P.euclidean2 rp r)
         y = (x * 0.5 * sqrt (pi / t) * S.erf (sqrt t))
     -- KINETIC ENERGY INTEGRAL
+    {-# INLINE kineticEnergy#-}
     kineticEnergy 
       Gaussian1S {alpha = a, center = r1}
       Gaussian1S {alpha = b, center = r2}
       =
-      n * x * y * (3.0 - 2.0 * a * b/((a + b)/((abs (r1 - r2))^2))) * (a * b / (a + b))
+      n * x * y * (3.0 - 2.0 * a * b/((a + b)/(P.euclidean2 r1 r2))) * (a * b / (a + b))
       where
         n = normalizationTerm a b
         x = term2 a b
         y = term3 a b r1 r2
 
     -- TWO ELECTRON INT
+    {-# INLINE twoElectron #-}
     twoElectron 
       Gaussian1S {alpha = a, center = ra}
       Gaussian1S {alpha = b, center = rb}
@@ -116,22 +125,20 @@ instance GaussianBasisFunction Gaussian1S where
         then (x)
       else y
       where
-        rp = (a*ra + b*rb)/(a + b)
-        rq = (c*rc + d*rd)/(c + d)
-        t = ((abs (rp - rq))**2) * (a+b) * (c +d) / (a + b+ c + d)
+        rp = (P.add (a `P.dmult` ra) (b `P.dmult` rb)) `P.ddiv` (a + b)
+        rq = (P.add (c `P.dmult` rc) (d `P.dmult` rd)) `P.ddiv` (c + d)
+        t = (P.euclidean2 rp rq) * (a+b) * (c +d) / (a + b+ c + d)
 
         x = (2 * a/pi)**0.75 * (2 * b/pi)**0.75
           * (2 * c/pi)**0.75 * (2 * d/pi)**0.75
           * (2 * pi**2.5)
-          / ((a + b)*(c+d)* sqrt (a + b + c + d))
-          * exp ((-a) * b/(a + b) * (abs (ra -rb))**2 - c*d/(c+d)*(abs (rc - rd))**2)
+          / ((a + b)*(c + d) * sqrt (a + b + c + d))
+          * exp ((-a) * b/(a + b) * (P.euclidean2 ra rb) - c*d/(c+d)*(P.euclidean2 rc rd))
 
         y = (x * 0.5 * sqrt (pi / t) * S.erf (sqrt t))
 
-tupleSTO b =
-    zip (d b) (g b)
-
-
+tuplesFromSTO STONG {coefficients = c, gaussians =g } =
+    zip c g
 
 overlapMatrix basis =
   reshape (length basis) $ fromList $ overlapIntegral <$> basis <*> basis
@@ -165,3 +172,14 @@ twoElectronMatrix basis =
     n = length basis :: Int
     twoElectronIntegral b1 b2 b3 b4 = contraction [b1,b2,b3,b4] twoElectronList
     twoElectronList (g1:g2:g3:g4:[]) = twoElectron g1 g2 g3 g4
+
+twoElectronMatrix' basis =
+    force $ fromFunction (Z:.n:.n:.n:.n) valAtIndex
+    where
+      vbasis = V.fromList basis
+      valAtIndex = (\(Z:.i:.j:.k:.l) -> twoElectronIntegral (vbasis ! i) (vbasis ! j) (vbasis ! k) (vbasis ! l))
+      n = V.length vbasis :: Int
+      twoElectronIntegral b1 b2 b3 b4 = contraction [b1,b2,b3,b4] twoElectronList
+      twoElectronList (g1:g2:g3:g4:[]) = twoElectron g1 g2 g3 g4
+
+

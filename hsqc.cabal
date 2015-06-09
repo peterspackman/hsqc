@@ -34,7 +34,8 @@ executable hsqc
                        bytestring >= 0.10.0.0,
                        attoparsec >= 0.12.0.0,
                        repa >= 3.0.0.0,
-                       repa-algorithms >= 3.0.0.0
+                       repa-algorithms >= 3.0.0.0,
+                       vector >= 0.10.0.0
 
 
   hs-source-dirs:      src

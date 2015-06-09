@@ -1,14 +1,13 @@
 {-# LANGUAGE MultiParamTypeClasses, BangPatterns #-}
 module HartreeFock where
-import Control.Monad.Identity (runIdentity)
 import Data.List (sortBy)
 import Numeric.LinearAlgebra hiding (Element)
 import Data.Array.Repa hiding ((++), sum, map, zipWith, replicate, reshape, toList)
 import qualified Data.Array.Repa as Repa (map, reshape, toList)
 import BasisFunction
 import Element
-import Matrix (row, col)
-import Debug.Trace
+import Matrix (force, row, col)
+import Point3D (Point3D, euclidean)
 
 maxIterations = 1000
 
@@ -27,7 +26,7 @@ instance Show System where
              ++ "\ncore hamiltonian:\n" ++ (dispf 4 (coreHamiltonian a))
 
 
-data Atom = Atom { center :: Double
+data Atom = Atom { center :: Point3D
                  , element :: Element
                  }
 instance Show Atom where
@@ -40,11 +39,11 @@ instance Eq Atom where
 
 gMatrix :: (Array U DIM4 Double) -> (Array U DIM2 Double) -> (Array U DIM2 Double)
 gMatrix twoElectron p =
-    runIdentity . computeP $ fromFunction (extent p) vals
+    force $ fromFunction (extent p) valueAtIndex
     where
-      vals = (\ix -> sumAllS $ (p *^ (((coulomb ix) -^ (Repa.map (*0.5) (corr ix))))))
+      valueAtIndex = (\ix -> sumAllS $ (p *^ (((coulomb ix) -^ (Repa.map (*0.5) (exchange ix))))))
       coulomb ix =  slice twoElectron (Z:.((col ix)::Int):.((row ix)::Int):.All:.All)
-      corr ix =  slice twoElectron (Z:.((col ix)::Int):.All:.All:.((row ix)::Int))
+      exchange ix =  slice twoElectron (Z:.((col ix)::Int):.All:.All:.((row ix)::Int))
 
 fockMatrix :: Matrix Double -> Array U DIM2 Double -> Matrix Double
 fockMatrix hcore g = 
@@ -63,7 +62,7 @@ scf System { atoms = a
     System a newDensityMatrix t h x totalEnergy electronicEnergy 
     where
       g = gMatrix t p
-      (Z:.n:._) = extent p
+      n = row (extent p)
       !pmat = reshape n (fromList (Repa.toList p))
       !f = fockMatrix h g 
       electronicEnergy = 0.5 * sumElements (trans pmat * (h + f))
@@ -74,9 +73,9 @@ scf System { atoms = a
 
 nuclearEnergy :: [Atom] -> Double
 nuclearEnergy atoms =
-    sum (energy <$> [(a,b) | a <- atoms, b <- tail atoms, not (a == b)])
+    sum (energy <$> [(a,b) | a <- atoms, b <- atoms, not (a == b)])
     where
-      energy (a,b) = (fromIntegral ((charge a) * (charge b))) / (abs ((center a) - (center b)))
+      energy (a,b) = (fromIntegral ((charge a) * (charge b))) / (euclidean (center a) (center b))
       charge a = atomicNumber $ element a
 
 sortedEigenvectors :: Field t => Matrix t -> Matrix (Complex Double)
@@ -99,11 +98,11 @@ coefficientMatrix f x =
 
 pMatrix :: Matrix Double -> Array U DIM2 Double
 pMatrix cMatrix =
-    runIdentity . computeP $ fromFunction (Z:.((rows cMatrix)::Int):.((cols cMatrix)::Int)) vals
+    force $ fromFunction (Z:.((rows cMatrix)::Int):.((cols cMatrix)::Int)) vals
     where
       vals = (\(Z:.i:.j) -> 2.0 * (cMatrix @@> (i, 0)) * (cMatrix @@> (j, 0)))
 
-initSystem :: [Double] -> [Int] -> System
+initSystem :: [Point3D] -> [Int] -> System
 initSystem r z = 
     (System atoms p t h x 0.0 0.0)
   where
@@ -116,7 +115,7 @@ initSystem r z =
     h = k + v
     (s, u) = eigSH' o
     x = u <> diag(mapVector (** (-0.5)) s ) <> (ctrans u)
-    t = twoElectronMatrix basis
+    !t = twoElectronMatrix' basis
     elements = map elementFromNumber z
     atoms = zipWith Atom r elements 
 

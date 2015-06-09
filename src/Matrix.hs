@@ -3,18 +3,23 @@ module Matrix where
 import Data.Array.Repa as R hiding ((++), map) 
 import qualified Data.Array.Repa (map)
 import Data.Array.Repa.Unsafe as R
+import Data.Array.Repa.Repr.Unboxed (Unbox)
 import Data.List (intersperse)
 import Data.List.Split (chunksOf)
 import Text.Printf (printf, PrintfArg)
 import System.Random (getStdRandom, randomR)
 import Data.Array.Repa.Algorithms.Randomish (randomishDoubleArray)
 import Data.List
+import Control.Monad.Identity (runIdentity)
 import qualified Data.Text as T
 
 
 type Matrix2D a = R.Array R.U R.DIM2 a 
 type Matrix3D a = R.Array R.U R.DIM3 a
 type Matrix4D a = R.Array R.U R.DIM4 a
+
+force :: (R.Shape sh, Unbox e) => R.Array R.D sh e -> R.Array R.U sh e
+force a = runIdentity ( R.computeP a)
 
 kroneckerDelta :: Eq a => a -> a-> Int
 kroneckerDelta a b
