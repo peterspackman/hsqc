@@ -5,17 +5,8 @@ import Element (elementFromSymbol, Element)
 import Control.Applicative
 import Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString as B
-
-data Atom =
-  Atom { element :: Element
-       , x :: Double
-       , y :: Double
-       , z :: Double
-         } deriving Show
-
-
-type Geometry = [Atom]
-
+import Point3D
+import Geometry
 
 skipSpaceNoNewline :: Parser ()
 skipSpaceNoNewline = 
@@ -33,7 +24,7 @@ atomParser = do
   skipSpace
   z <- double
   skipSpaceNoNewline
-  return $ Atom (elementFromSymbol t) x y z
+  return $ Atom (Point3D x y z) (elementFromSymbol t) 
 
 
 countEntryParser :: Parser ()

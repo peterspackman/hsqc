@@ -5,13 +5,14 @@ import Numeric.LinearAlgebra hiding (Element)
 import Data.Array.Repa hiding ((++), sum, map, zipWith, replicate, reshape, toList)
 import qualified Data.Array.Repa as Repa (map, reshape, toList)
 import BasisFunction
-import Element
+import Element hiding (atomicNumber)
+import Geometry
 import Matrix (force, row, col)
 import Point3D (Point3D, euclidean)
 
 maxIterations = 1000
 
-data System = System { atoms :: [Atom] 
+data System = System { atoms :: Geometry
                      , densityMatrix :: Array U DIM2 Double
                      , integrals :: Array U DIM4 Double
                      , coreHamiltonian :: Matrix Double
@@ -21,21 +22,9 @@ data System = System { atoms :: [Atom]
                      }
 
 instance Show System where
-    show a = "(" ++ (show $ atoms a) ++ " -> Et: " ++ (show $ totalEnergy a)
-             ++ ", Ee: " ++ (show $ electronicEnergy a)
-             ++ "\ncore hamiltonian:\n" ++ (dispf 4 (coreHamiltonian a))
+    show a = (show $ atoms a) ++ "\nE-total: " ++ (show $ totalEnergy a)
+             ++ "\nE-electronic: " ++ (show $ electronicEnergy a)
 
-
-data Atom = Atom { center :: Point3D
-                 , element :: Element
-                 }
-instance Show Atom where
-    show a = "(" ++ (Element.symbol $ element a) ++ ": " ++ show (center a) ++ ")"
-
-instance Eq Atom where
-    (==) a b =
-      (center a == center b) &&
-      (atomicNumber $ element a) == (atomicNumber $ element b)
 
 gMatrix :: (Array U DIM4 Double) -> (Array U DIM2 Double) -> (Array U DIM2 Double)
 gMatrix twoElectron p =
@@ -75,8 +64,9 @@ nuclearEnergy :: [Atom] -> Double
 nuclearEnergy atoms =
     sum (energy <$> [(a,b) | a <- atoms, b <- atoms, not (a == b)])
     where
-      energy (a,b) = (fromIntegral ((charge a) * (charge b))) / (euclidean (center a) (center b))
-      charge a = atomicNumber $ element a
+      energy (a,b) = (fromIntegral ((charge a) * (charge b))) / (distance a b)
+      charge a = atomicNumber a 
+      distance Atom {center = r1} Atom {center = r2} = euclidean r1 r2
 
 sortedEigenvectors :: Field t => Matrix t -> Matrix (Complex Double)
 sortedEigenvectors m =
@@ -102,22 +92,20 @@ pMatrix cMatrix =
     where
       vals = (\(Z:.i:.j) -> 2.0 * (cMatrix @@> (i, 0)) * (cMatrix @@> (j, 0)))
 
-initSystem :: [Point3D] -> [Int] -> System
-initSystem r z = 
+initSystem :: Geometry -> System
+initSystem atoms = 
     (System atoms p t h x 0.0 0.0)
   where
-    basis = zipWith (basisFunction) r z
+    basis = map basisFunction atoms 
     o = overlapMatrix basis
     n = length basis
     p = fromListUnboxed (Z:.(n::Int):.(n::Int)) (replicate (n*n) 0 ::[Double])
     k = kineticMatrix basis
-    v = nuclearMatrix (zip z r) basis
+    v = nuclearMatrix atoms basis
     h = k + v
     (s, u) = eigSH' o
     x = u <> diag(mapVector (** (-0.5)) s ) <> (ctrans u)
     !t = twoElectronMatrix' basis
-    elements = map elementFromNumber z
-    atoms = zipWith Atom r elements 
 
 converge :: (a -> a -> Bool) -> [a] -> a
 converge p (x:ys@(y:_))

@@ -15,6 +15,8 @@ import Control.Applicative
 import Data.Vector ((!))
 import qualified Data.Vector as V
 import qualified Point3D as P
+import qualified Geometry as G
+import Element (atomicNumber)
 
 allPairs a b = (,) <$> a <*> b
 
@@ -52,10 +54,12 @@ sto3G center zeta =
           , Gaussian1S (zeta**2 * 0.405771) center
           , Gaussian1S (zeta**2 * 2.22766) center]
 
-basisFunction center atomicNumber
-  | atomicNumber == 1 = sto3GH center
-  | atomicNumber == 2 = sto3GHe center
-  | otherwise = sto3GH center -- Hydrogen by default
+basisFunction G.Atom {G.center = r, G.element = e}
+  | n == 1 = sto3GH r
+  | n == 2 = sto3GHe r
+  | otherwise = sto3GH r -- Hydrogen by default
+  where
+    n = Element.atomicNumber e
 
 contraction bs integral =
     sum $ map (f . unzip) (sequence $ map tuplesFromSTO bs)
@@ -155,14 +159,17 @@ kineticMatrix basis =
     kineticIntegral b1 b2 = contraction [b1, b2] kineticList
     kineticList (g1:g2:[]) = kineticEnergy g1 g2
  
-
-nuclearMatrix zr basis =
+nuclearMatrix :: G.Geometry -> [STONG] -> Matrix Double
+nuclearMatrix atoms basis =
   reshape (length basis) $ fromList $ map (v zr) (allPairs basis basis)
   where 
     integral ((z, r),(b1, b2)) = nuclearIntegral z r b1 b2
     v zr bs = sum $ map integral (allPairs zr [bs])
     nuclearIntegral z r b1 b2 = contraction [b1, b2] (nuclearList z r)
     nuclearList z r (g1:g2:[]) = nuclearAttraction z r g1 g2
+    zr = zip (map G.atomicNumber atoms) (map G.center atoms)
+    (z,r) = unzip zr
+
 
 
 twoElectronMatrix basis =
