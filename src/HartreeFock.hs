@@ -25,20 +25,21 @@ instance Show System where
     show a = (show $ atoms a) ++ "\nE-total: " ++ (show $ totalEnergy a)
              ++ "\nE-electronic: " ++ (show $ electronicEnergy a)
 
-
+-- j == Coulomb, k == exchange
 gMatrix :: (Array U DIM4 Double) -> (Array U DIM2 Double) -> (Array U DIM2 Double)
 gMatrix twoElectron p =
-    force $ fromFunction (extent p) valueAtIndex
+    force $ fromFunction (extent p) g
+    -- ix <=> index
     where
-      valueAtIndex = (\ix -> sumAllS $ (p *^ (((coulomb ix) -^ (Repa.map (*0.5) (exchange ix))))))
-      coulomb ix =  slice twoElectron (Z:.((col ix)::Int):.((row ix)::Int):.All:.All)
-      exchange ix =  slice twoElectron (Z:.((col ix)::Int):.All:.All:.((row ix)::Int))
+      g = (\ix -> sumAllS $ (p *^ (((j ix) -^ (Repa.map (*0.5) (k ix))))))
+      j ix =  slice twoElectron (Z:.(col ix):.(row ix):.All:.All)
+      k ix =  slice twoElectron (Z:.(col ix):.All:.All:.(row ix))
 
 fockMatrix :: Matrix Double -> Array U DIM2 Double -> Matrix Double
 fockMatrix hcore g = 
     hcore + gmat
     where 
-    (Z:.rows:.columns) = extent g
+    (Z:.rows:._) = extent g
     gmat = reshape rows (fromList (Repa.toList g))
 
 scf :: System -> System
@@ -52,13 +53,13 @@ scf System { atoms = a
     where
       g = gMatrix t p
       n = row (extent p)
-      !pmat = reshape n (fromList (Repa.toList p))
-      !f = fockMatrix h g 
+      pmat = reshape n (fromList (Repa.toList p))
+      f = fockMatrix h g 
       electronicEnergy = 0.5 * sumElements (trans pmat * (h + f))
       nuc = nuclearEnergy a
       totalEnergy = nuc + electronicEnergy
       c = coefficientMatrix f x
-      !newDensityMatrix = pMatrix c
+      newDensityMatrix = pMatrix c
 
 nuclearEnergy :: [Atom] -> Double
 nuclearEnergy atoms =

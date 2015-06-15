@@ -9,6 +9,8 @@ data Point3D = Point3D {-# UNPACK #-} !Double
                        {-# UNPACK #-} !Double
                        {-# UNPACK #-} !Double
 
+data Axis = X | Y | Z deriving (Eq, Show)
+
 instance Show Point3D where
     show (Point3D x y z) = "{" ++ (show x) ++ " " ++ (show y) ++ " " ++ (show z) ++"}"
 
@@ -34,6 +36,19 @@ instance Storable Point3D where
 
 instance Eq Point3D where
     (==) (Point3D a b c) (Point3D a' b' c') = (a == a') && (b == b') && (c == c')
+
+(@@) :: Point3D -> Int -> Double
+(Point3D x y z) @@ i
+  | i == 1 = x
+  | i == 2 = y
+  | i == 3 = z
+
+(#) :: Point3D -> Axis -> Double
+(Point3D x y z) # ax
+  | ax == X = x
+  | ax == Y = y
+  | ax == Z = z
+{-# INLINE (#) #-}
 
 add :: Point3D -> Point3D -> Point3D
 {-# INLINE add #-}
@@ -66,7 +81,6 @@ euclidean a b = norm (sub a b)
 euclidean2 :: Point3D -> Point3D -> Double
 {-# INLINE euclidean2 #-}
 euclidean2 a b = norm2 (sub a b)
-
 
 dmult :: Double -> Point3D -> Point3D
 {-# INLINE dmult #-}

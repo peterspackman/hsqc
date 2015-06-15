@@ -1,7 +1,3 @@
-{- |
-- This module is for data of the periodic table of elements
--}
-
 module Element ( Element
                , atomicNumber
                , elements
@@ -9,6 +5,7 @@ module Element ( Element
                , elementFromSymbol
                , symbol) where
 
+import Orbitals
 data Element = Element { atomicNumber :: Int
                        , symbol :: String
                        , _name :: String
