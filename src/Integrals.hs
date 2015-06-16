@@ -6,6 +6,7 @@ module Integrals ( twoElectronIntegral
                   where
 
 import Point3D
+import Gaussian
 import qualified Numeric.GSL.Special as GSL
 
 boys :: Double -> Double -> Double
@@ -15,10 +16,7 @@ boys 0 x
 
 boys m x = k `seq` k / d
   where
-    k = GSL.hyperg_1F1 a b z
-    a = m + 0.5
-    b = m + 1.5
-    z = -x
+    k = GSL.hyperg_1F1 (m + 0.5) (m + 1.5) (-x)
     d = (2 * m) + 1
 
 factorial n = product [1..n]
@@ -224,7 +222,7 @@ kineticIntegral g1 g2
     j = pAxis g2
 
 nuclearIntegral :: [(Double, Point3D)] -> Gaussian -> Gaussian -> Double
-nuclearIntegral nuclei g1 g2
+nuclearIntegral nuclearCharges g1 g2
   | i == 0 && j == 0 =
     let f c = s00 * l00 c in
       theta * (sum $ zipWith (*) charges (f <$> centers))
@@ -239,7 +237,7 @@ nuclearIntegral nuclei g1 g2
       theta * (sum $ zipWith (*) charges (f <$> centers))
   where
     -- input of charges/centers subject to change
-    (charges, centers) = unzip nuclei
+    (charges, centers) = unzip nuclearCharges
     theta = (-2.0)*(sqrt (a1 + a2))/ (sqrt pi)
     l00 c = ell 0 0 c g1 g2
     li0 c = ell i 0 c g1 g2

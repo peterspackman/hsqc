@@ -9,7 +9,7 @@ import Element hiding (atomicNumber)
 import Geometry
 import Matrix (force, row, col)
 import Point3D (Point3D, euclidean)
-
+import Debug.Trace
 maxIterations = 1000
 
 data System = System { atoms :: Geometry
@@ -95,7 +95,7 @@ pMatrix cMatrix =
 
 initSystem :: Geometry -> System
 initSystem atoms = 
-    (System atoms p t h x 0.0 0.0)
+   (trace (show h))  (System atoms p t h x 0.0 0.0)
   where
     basis = map basisFunction atoms 
     o = overlapMatrix basis
@@ -106,7 +106,7 @@ initSystem atoms =
     h = k + v
     (s, u) = eigSH' o
     x = u <> diag(mapVector (** (-0.5)) s ) <> (ctrans u)
-    !t = twoElectronMatrix' basis
+    !t = twoElectronMatrix basis
 
 converge :: (a -> a -> Bool) -> [a] -> a
 converge p (x:ys@(y:_))
