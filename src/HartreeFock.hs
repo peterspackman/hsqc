@@ -5,6 +5,7 @@ import Numeric.LinearAlgebra hiding (Element)
 import Data.Array.Repa hiding ((++), sum, map, zipWith, replicate, reshape, toList)
 import qualified Data.Array.Repa as Repa (map, reshape, toList)
 import BasisFunction
+import STO3G
 import Element hiding (atomicNumber)
 import Geometry
 import Matrix (force, row, col)
@@ -24,6 +25,7 @@ data System = System { atoms :: Geometry
 instance Show System where
     show a = (show $ atoms a) ++ "\nE-total: " ++ (show $ totalEnergy a)
              ++ "\nE-electronic: " ++ (show $ electronicEnergy a)
+             ++ "\nE-nuc: " ++ (show $ (totalEnergy a - electronicEnergy a))
 
 -- j == Coulomb, k == exchange
 gMatrix :: (Array U DIM4 Double) -> (Array U DIM2 Double) -> (Array U DIM2 Double)
@@ -93,11 +95,14 @@ pMatrix cMatrix =
     where
       vals = (\(Z:.i:.j) -> 2.0 * (cMatrix @@> (i, 0)) * (cMatrix @@> (j, 0)))
 
-initSystem :: Geometry -> System
-initSystem atoms = 
-   (trace (show h))  (System atoms p t h x 0.0 0.0)
+
+initSystem :: Geometry -> (Maybe BasisSet) -> System
+initSystem atoms basisSet = 
+  (trace (show v)) (System atoms p t h x 0.0 0.0)
   where
-    basis = map basisFunction atoms 
+    basis = case basisSet of
+              Just b -> concat (map (getAtomicOrbital b) atoms)
+              Nothing -> map basisFunction atoms 
     o = overlapMatrix basis
     n = length basis
     p = fromListUnboxed (Z:.(n::Int):.(n::Int)) (replicate (n*n) 0 ::[Double])

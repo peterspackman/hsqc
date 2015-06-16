@@ -24,6 +24,7 @@ factorial n = product [1..n]
 centerOfProduct Gaussian {alpha = a1, center = c1}
   Gaussian {alpha = a2, center = c2} =
     ddiv (add (dmult a1 c1) (dmult a2 c2)) (a1 + a2)
+{-# INLINE centerOfProduct #-}
 
 normalizationFactor Gaussian {alpha = a, xIndex = l, yIndex = m, zIndex = n} =
     ((fromIntegral (f1 * f2 * f3)) * ((pi / (2.0*a))**1.5)
@@ -62,23 +63,25 @@ delta i j
 {-# INLINE delta #-}
 
 s :: Int -> Int -> Gaussian -> Gaussian -> Double
-s i j g1 g2 
-  | i == 0 && j == 0 =
-    n1 * n2 * ((pi / (a1 + a2))**1.5 )* exp (((-a1) * a2)/(a1+a2) * euclidean2 c1 c2)
+s i j a b 
+  | (i,j) == (0,0) =
+    n1 * n2 * ((pi / (a1 + a2)) ** 1.5 ) * exp (((-a1) * a2)/(a1+a2) * euclidean2 c1 c2)
   | j == 0 =
-    (-a2)/(a1 + a2) * (c1 @@ i - c2 @@ i) * s 0 0 g1 g2
+    (-a2)/(a1 + a2) * (c1 @@ i - c2 @@ i) * s00ab
   | i == 0 =
-    (-a1)/(a1 + a2) * (c2 @@ j - c1 @@ j) * s 0 0 g1 g2
+    (-a1)/(a1 + a2) * (c2 @@ j - c1 @@ j) * s00ab
   | otherwise = 
-    ((delta i j) / (2.0 * (a1 + a2)) + (a1 * a2)/((a1 + a2)^2) 
-    * (c1 @@ i - c2 @@ i) *(c2 @@ j - c1 @@ j)) * s 0 0 g1 g2
+    (( (a1 * a2) * (c1 @@ i - c2 @@ i) * (c2 @@ j - c1 @@ j) / ((a1 + a2)^2) )
+    + 0.5 * dij / (a1 + a2) ) * s00ab
   where
-    n1 = normalizationFactor g1
-    n2 = normalizationFactor g2
-    a1 = alpha g1
-    a2 = alpha g2
-    c1 = center g1
-    c2 = center g2
+    s00ab = s 0 0 a b
+    dij = delta i j
+    n1 = normalizationFactor a
+    n2 = normalizationFactor b
+    a1 = alpha a
+    a2 = alpha b
+    c1 = center a
+    c2 = center b
 
 ell :: Int -> Int -> Point3D -> Gaussian -> Gaussian -> Double
 ell i j c g1 g2
@@ -90,7 +93,7 @@ ell i j c g1 g2
     (c @@ j - p @@ j) * f 1 t
   | otherwise =
     (p @@ i - c @@ i) * (p @@ j - c @@ j) * (f 2 t) 
-    - (delta i j) * (f 1 t) / (2.0 * (a1 + a2))
+    - ((delta i j) * (f 1 t) )/ (2.0 * (a1 + a2))
   where
     f = boys
     t = (a1 + a2) * euclidean2 p c
@@ -105,7 +108,7 @@ k i j g1 g2
   | j == 0 =
     (-2.0) * a1 * a2^2 / (a1 + a2)^2 *(c1 @@ i - c2 @@ i)
   | i == 0 =
-    (-2.0) * a2 * a1^2 / (a1 + a2)^2 *(c2 @@ i - c1 @@ i)
+    (-2.0) * a2 * a1^2 / (a1 + a2)^2 *(c2 @@ j - c1 @@ j)
   | otherwise =
     (delta i j) * a1 * a2 / (a1 + a2)^2
   where

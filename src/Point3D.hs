@@ -4,6 +4,7 @@ import Data.Vector.Storable hiding ((++))
 import qualified Data.Vector.Storable as V
 import Foreign
 import Foreign.C.Types
+import Debug.Trace
 
 data Point3D = Point3D {-# UNPACK #-} !Double
                        {-# UNPACK #-} !Double

@@ -1,0 +1,4 @@
+Usage:
+  hsqc scf <file>
+
+Options:

@@ -3,6 +3,7 @@ module BasisFunction ( basisFunction
                      , nuclearMatrix
                      , twoElectronMatrix
                      , overlapMatrix
+                     , contraction
                      ) where
 
 import Numeric.LinearAlgebra hiding (Gaussian)
@@ -18,18 +19,9 @@ import qualified Geometry as G
 import Integrals
 import Gaussian
 import Element (atomicNumber)
+import STO3G
 
 allPairs a b = (,) <$> a <*> b
-
-data STONG =
-    STONG { coefficients :: [Double] -- contraction coefficients
-          , gaussians :: [Gaussian] -- primative gaussian functions
-          } deriving Show
-
-instance Eq STONG where
-    (==) a b =
-      (gaussians a == gaussians b) && (coefficients a == coefficients b)
-
 
 sto3GH center = sto3G center 1.24
 sto3GHe center = sto3G center 2.0925
@@ -52,16 +44,14 @@ contraction bs integral =
     where 
       f (ds, gs) = (product ds) * (integral gs)
 
-tuplesFromSTO STONG {coefficients = c, gaussians =g } =
+tuplesFromSTO STONG {contractionCoefficients = c, gaussians =g } =
     zip c g
 
 overlapMatrix basis =
   reshape (length basis) $ fromList $ overlap <$> basis <*> basis
   where
     overlap b1 b2 = contraction [b1,b2] overlapList
-    overlapList (g1:g2:[])
-      | g1 == g2 = 1.0
-      | otherwise = overlapIntegral g1 g2
+    overlapList (g1:g2:[]) = overlapIntegral g1 g2
 
 kineticMatrix basis =
   reshape (length basis) $ fromList $ kinetic <$> basis <*> basis

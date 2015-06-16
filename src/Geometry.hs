@@ -21,3 +21,6 @@ type Geometry = [Atom]
 
 atomicNumber :: Atom -> Int
 atomicNumber Atom {element = e} = E.atomicNumber e
+
+atomicSymbol :: Atom -> String
+atomicSymbol Atom {element = e} = E.symbol e
