@@ -10,8 +10,16 @@ import Element hiding (atomicNumber)
 import Geometry
 import Matrix (force, row, col)
 import Point3D (Point3D, euclidean)
-import Debug.Trace
-maxIterations = 1000
+maxIterations = 10
+
+data Energies = Energies 
+              { e :: Double
+              , ee :: Double
+              , enn :: Double
+              , een :: Double
+              , ep :: Double
+              , ek :: Double
+              }
 
 data System = System { atoms :: Geometry
                      , densityMatrix :: Array U DIM2 Double
@@ -33,7 +41,7 @@ gMatrix twoElectron p =
     force $ fromFunction (extent p) g
     -- ix <=> index
     where
-      g = (\ix -> sumAllS $ (p *^ (((j ix) -^ (Repa.map (*0.5) (k ix))))))
+      g = (\ix -> sumAllS $! (p *^ (((j ix) -^ (Repa.map (*0.5) (k ix))))))
       j ix =  slice twoElectron (Z:.(col ix):.(row ix):.All:.All)
       k ix =  slice twoElectron (Z:.(col ix):.All:.All:.(row ix))
 
@@ -57,11 +65,12 @@ scf System { atoms = a
       n = row (extent p)
       pmat = reshape n (fromList (Repa.toList p))
       f = fockMatrix h g 
-      electronicEnergy = 0.5 * sumElements (trans pmat * (h + f))
+      electronicEnergy = 0.5 * sumElements (pmat * (h + f))
       nuc = nuclearEnergy a
       totalEnergy = nuc + electronicEnergy
       c = coefficientMatrix f x
       newDensityMatrix = pMatrix c
+
 
 nuclearEnergy :: [Atom] -> Double
 nuclearEnergy atoms =
@@ -98,11 +107,11 @@ pMatrix cMatrix =
 
 initSystem :: Geometry -> (Maybe BasisSet) -> System
 initSystem atoms basisSet = 
-  (trace (show v)) (System atoms p t h x 0.0 0.0)
+  (System atoms p t h x 0.0 0.0)
   where
     basis = case basisSet of
               Just b -> concat (map (getAtomicOrbital b) atoms)
-              Nothing -> map basisFunction atoms 
+              Nothing -> undefined
     o = overlapMatrix basis
     n = length basis
     p = fromListUnboxed (Z:.(n::Int):.(n::Int)) (replicate (n*n) 0 ::[Double])
@@ -123,3 +132,11 @@ calculateSCF system eps =
     converge (\a b -> (abs ((totalEnergy a) - (totalEnergy b)) < eps)) s
     where
       s = take maxIterations (iterate scf system)
+
+sameAtom :: STONG -> STONG -> Bool
+sameAtom a b = (atom a == atom b)
+
+soad basis =
+    undefined
+  where
+    numOrbitals = length basis

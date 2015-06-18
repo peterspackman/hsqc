@@ -7,6 +7,7 @@ import System.Environment
 import HartreeFock
 import System.Console.Docopt
 import STO3G
+import qualified Test as T
 
 patterns :: Docopt
 patterns = [docoptFile|USAGE.txt|]

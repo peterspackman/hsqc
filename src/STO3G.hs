@@ -3,10 +3,8 @@ module STO3G where
 import GHC.Generics
 import Gaussian hiding (center)
 import Geometry
-import Control.Monad (mzero)
 import Data.Aeson
 import Data.Map (Map, (!))
-import qualified Data.Map as Map
 import qualified Data.ByteString.Lazy as B
 
 type BasisSet = Map String [ContractedGaussian] 
@@ -24,7 +22,7 @@ getAtomicOrbital b a =
       shell (ContractedGaussian k p c) =
         case k of "p" -> [ng "px" p c, ng "py" p c, ng "pz" p c]
                   "s" -> [ng "s" p c]
-      ng k p c = STONG c (map (gaussianFromKind (center a) k) p)
+      ng k p c = STONG a c (map (gaussianFromKind (center a) k) p)
 
 gaussianFromKind c kind alpha
   | kind == "px" = Gaussian c alpha 1 0 0
@@ -33,7 +31,8 @@ gaussianFromKind c kind alpha
   | kind == "s" = Gaussian c alpha 0 0 0 
 
 data STONG =
-    STONG { contractionCoefficients :: [Double] -- contraction coefficients
+    STONG { atom :: Atom
+          , contractionCoefficients :: [Double] -- contraction coefficients
           , gaussians :: [Gaussian] -- primative gaussian functions
           } deriving (Show, Eq)
 

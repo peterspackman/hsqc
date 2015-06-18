@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, BangPatterns #-}
 module XYZParser where
 
 import Element (elementFromSymbol, Element)
@@ -6,7 +6,7 @@ import Control.Applicative
 import Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString as B
 import Point3D
-import Geometry
+import Geometry 
 
 skipSpaceNoNewline :: Parser ()
 skipSpaceNoNewline = 
@@ -24,7 +24,7 @@ atomParser = do
   skipSpace
   z <- double
   skipSpaceNoNewline
-  return $ Atom (Point3D x y z) (elementFromSymbol t) 
+  return $! Atom (Point3D x y z) (elementFromSymbol t) 
 
 
 countEntryParser :: Parser ()

@@ -3,8 +3,10 @@ module Element ( Element
                , elements
                , elementFromNumber
                , elementFromSymbol
+               , electronConfig
                , symbol) where
 
+import qualified Data.Map as Map  
 import Orbitals
 data Element = Element { atomicNumber :: Int
                        , symbol :: String
@@ -133,6 +135,58 @@ elements = [ Element 1 "H" "Hydrogen"         1.008
            , Element 118 "Uuo" "Ununoctium"   294       
            ]
 
+electronConfig :: Element -> [Int]
+electronConfig e = 
+    case Map.lookup (atomicNumber e) configExceptions of
+      Just val -> val
+      _ -> filter (> 0) $ f (fillShells (atomicNumber e)) 
+      where f :: [(Int, Int, Int)] -> [Int]
+            f ss = [sum (g n ss) | n <- [1..m]]
+              where m = length ss
+                    g l = map (\(a,_,c) -> if a == l then c else 0)
+
+valenceElectrons :: Element -> Int
+valenceElectrons e = last (electronConfig e)
+
+covalentBounds :: Element -> Int
+covalentBounds e = min n (8-n)
+    where n = valenceElectrons e
+
+subshellMaxElectrons :: [Int]
+subshellMaxElectrons = [2, 6, 10, 14, 18]
+
+shellConfigGen :: Int -> [(Int, Int)]
+shellConfigGen n = [(i,m-i) | m <- [2..n+n], i <- [((m+1) `div` 2)..m-1] ] 
+
+fillShells :: Int -> [(Int, Int, Int)]
+fillShells = f (shellConfigGen 5)
+        where f :: [(Int, Int)] -> Int -> [(Int, Int, Int)]
+              f [] _ = []
+              f ((i,j):xs) m | m == 0 = []
+                             | m < l = [(i, j, m)]
+                             | otherwise = (i, j, l) : f xs (m - l)
+                             where l = subshellMaxElectrons !! (j-1)  
+
+
+configExceptions :: Map.Map Int [Int] 
+configExceptions = Map.fromList [ (24, [2, 8, 13, 1])
+                                , (29, [2, 8, 18, 1]) 
+                                , (41, [2, 8, 18, 12, 1])
+                                , (42, [2, 8, 18, 13, 1])
+                                , (44, [2, 8, 18, 15, 1])
+                                , (45, [2, 8, 18, 16, 1])
+                                , (46, [2, 8, 18, 18])
+                                , (47, [2, 8, 18, 18, 1]) 
+                                , (57, [2, 8, 18, 18, 9, 2])
+                                , (58, [2, 8, 18, 19, 9, 2])
+                                , (64, [2, 8, 18, 25, 9, 2])
+                                , (79, [2, 8, 18, 32, 18, 1])
+                                , (89, [2, 8, 18, 32, 18, 9, 2])
+                                , (90, [2, 8, 18, 32, 18, 10, 2])
+                                , (91, [2, 8, 18, 32, 20, 9, 2])
+                                , (92, [2, 8, 18, 32, 21, 9, 2])
+                                , (93, [2, 8, 18, 32, 22, 9, 2]) 
+                                , (96, [2, 8, 18, 32, 25, 9, 2]) ]
 elementFromNumber :: Int -> Element
 elementFromNumber n = f n elements
   where f :: Int -> [Element] -> Element
