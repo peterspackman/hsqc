@@ -5,6 +5,7 @@ module BasisFunction ( kineticMatrix
                      , overlapMatrix
                      , contraction
                      , sortBasisFunctions
+                     , twoElectronTest
                      ) where
 
 import Numeric.LinearAlgebra hiding (Gaussian)
@@ -22,13 +23,14 @@ import Integrals
 import Gaussian
 import Element (atomicNumber)
 import STO3G
+import Debug.Trace
 
 allPairs a b = (,) <$> a <*> b
 
 contraction !bs integral =
     sum $ map (f . unzip) (sequence $ map tuplesFromSTO bs)
     where 
-      f (!ds, !gs) = (product ds) * (integral gs)
+      f (!ds, !gs) = (product ds) * (integral gs) 
 
 tuplesFromSTO STONG {contractionCoefficients = c, gaussians =g } =
     zip c g
@@ -65,7 +67,17 @@ twoElectronMatrix basis =
       twoElectron b1 b2 b3 b4 = contraction [b1,b2,b3,b4] twoElectronList
       twoElectronList (g1:g2:g3:g4:[]) = 
         let (a:b:c:d:[]) = sortBasisFunctions g1 g2 g3 g4 in
-          twoElectronIntegral a b c d
+          (twoElectronIntegral a b c d)
+
+twoElectronTest b1 b2 b3 b4 =
+    contraction [b1,b2,b3,b4] twoElectronList
+    where
+      twoElectronList (g1:g2:g3:g4:[]) = 
+        let (a:b:c:d:[]) = sortBasisFunctions g1 g2 g3 g4 in
+          let v = (twoElectronIntegral a b c d) in
+            (trace ((show [a,b,c,d]) ++ ": "++ (show v)))  (v)
+
+
 
 sortBasisFunctions b1 b2 b3 b4 =
     concat $ sortBy numP (map sort [[b1, b2], [b3,b4]])

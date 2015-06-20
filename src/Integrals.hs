@@ -4,6 +4,7 @@ module Integrals ( twoElectronIntegral
                  , nuclearIntegral
                  , overlapIntegral
                  , pType
+                 , boys
                  )
                   where
 
@@ -126,29 +127,32 @@ k i j g1 g2
 {-# INLINE k #-}
 
 -- ABOVE HAS BEEN CHECKED
+type FourIndex = (Int, Int, Int, Int)
+type FourGaussian = (Gaussian, Gaussian, Gaussian, Gaussian)
 
-
-g :: Int -> Int -> Int -> Int -> Gaussian -> Gaussian -> Gaussian -> Gaussian -> Double
+g :: FourIndex -> FourGaussian -> Double
 -- G0000
-g 0 0 0 0 g1 g2 g3 g4 = boys 0 t
+g (0,0,0,0) (g1,g2,g3,g4) = boys 0 t
   where
-    !t = (a1 + a2)*(a3 + a4)/(a1 + a2 + a3 + a4) * euclidean2 p q
+    !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
+    s1 = a1 + a2
+    s2 = a3 + a4
+    s4 = s1 + s2
     a1 = alpha g1
     a2 = alpha g2
     a3 = alpha g3
     a4 = alpha g4
 
--- Gi000 == G0j00
-g 0 i 0 0 g1 g2 g3 g4 = g i 0 0 0 g1 g2 g3 g4
-g i 0 0 0 g1 g2 g3 g4 = (-s2)/s4 * (pMinQ i) * boys 1 t
+-- Gi000 == G0i00
+g (0,i,0,0) gs = g (i,0,0,0) gs
+g (i,0,0,0) (g1,g2,g3,g4) = ((-s2)/s4) * (pMinQ i) * boys 1 t
   where
-    !t = (a1 + a2)*(a3 + a4)/(a1 + a2 + a3 + a4) * euclidean2 p q
+    !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
     pMinQ x = p @@ x - q @@ x
-    qMinP x = q @@ x - p @@ x
     s1 = a1 + a2
     s2 = a3 + a4
     s4 = s1 + s2
@@ -158,13 +162,12 @@ g i 0 0 0 g1 g2 g3 g4 = (-s2)/s4 * (pMinQ i) * boys 1 t
     a4 = alpha g4
 
 -- G00k0 == G000l
-g 0 0 i 0 g1 g2 g3 g4 = g 0 0 0 i g1 g2 g3 g4
-g 0 0 0 i g1 g2 g3 g4 = (-s1)/s4 * (qMinP i) * boys 1 t
+g (0,0,i,0) gs = g (0,0,0,i) gs
+g (0,0,0,i) (g1,g2,g3,g4) = (-s1)/s4 * (qMinP i) * boys 1 t
   where
-    !t = (a1 + a2)*(a3 + a4)/(a1 + a2 + a3 + a4) * euclidean2 p q
+    !t = (s1)*(s2)/(s4) * euclidean2 p q
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
-    pMinQ x = p @@ x - q @@ x
     qMinP x = q @@ x - p @@ x
     s1 = a1 + a2
     s2 = a3 + a4
@@ -175,14 +178,14 @@ g 0 0 0 i g1 g2 g3 g4 = (-s1)/s4 * (qMinP i) * boys 1 t
     a4 = alpha g4
 
 -- Gij00 
-g i j 0 0 g1 g2 g3 g4 = 
+g (i,j,0,0) (g1,g2,g3,g4) = 
+  (trace ("Gij00"))
   (s2/s4) * ((s2/s4)*(pMinQ i)*(pMinQ j)*(boys 2 t) - (delta i j)*(boys 1 t)/(2.0*s1))
   where
-    !t = (a1 + a2)*(a3 + a4)/(a1 + a2 + a3 + a4) * euclidean2 p q
+    !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
     pMinQ x = p @@ x - q @@ x
-    qMinP x = q @@ x - p @@ x
     s1 = a1 + a2
     s2 = a3 + a4
     s4 = s1 + s2
@@ -192,13 +195,12 @@ g i j 0 0 g1 g2 g3 g4 =
     a4 = alpha g4
 
 -- G00ij
-g 0 0 i j g1 g2 g3 g4 = 
+g (0,0,i,j) (g1,g2,g3,g4) = 
   (s1/s4) * ((s1/s4)*(qMinP i)*(qMinP j)*(boys 2 t) - (delta i j)*(boys 1 t)/(2.0*s2))
   where 
-    !t = (a1 + a2)*(a3 + a4)/(a1 + a2 + a3 + a4) * euclidean2 p q
+    !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
-    pMinQ x = p @@ x - q @@ x
     qMinP x = q @@ x - p @@ x
     s1 = a1 + a2
     s2 = a3 + a4
@@ -209,17 +211,16 @@ g 0 0 i j g1 g2 g3 g4 =
     a4 = alpha g4
 
 -- Gi0j0 == G0ij0 == G0i0j == Gi00j
-g i 0 j 0 g1 g2 g3 g4 = g i 0 0 j g1 g2 g3 g4
-g 0 i j 0 g1 g2 g3 g4 = g i 0 0 j g1 g2 g3 g4
-g 0 i 0 j g1 g2 g3 g4 = g i 0 0 j g1 g2 g3 g4
-g i 0 0 j g1 g2 g3 g4 =
+g (i,0,j,0) gs = g (i,0,0,j) gs
+g (0,i,j,0) gs = g (i,0,0,j) gs
+g (0,i,0,j) gs = g (i,0,0,j) gs
+g (i,0,0,j) (g1,g2,g3,g4) =
   1.0/s4 *((s1*s2)/s4 * (pMinQ i) * (pMinQ i)*(boys 2 t) - (delta i j)*(boys 1 t)* 0.5)
   where 
-    !t = (a1 + a2)*(a3 + a4)/(a1 + a2 + a3 + a4) * euclidean2 p q
+    !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
     pMinQ x = p @@ x - q @@ x
-    qMinP x = q @@ x - p @@ x
     s1 = a1 + a2
     s2 = a3 + a4
     s4 = s1 + s2
@@ -229,17 +230,16 @@ g i 0 0 j g1 g2 g3 g4 =
     a4 = alpha g4
 
 -- Gijk0 == Gij0k
-g i j 0 k g1 g2 g3 g4 = g i j k 0 g1 g2 g3 g4
-g i j k 0 g1 g2 g3 g4 =
+g (i,j,0,k) gs = g (i,j,k,0) gs
+g (i,j,k,0) (g1,g2,g3,g4) =
     (-s2)/(s4^2)*(s1*s2/s4 * (pMinQ i)*(pMinQ j)*(pMinQ k)
     * (boys 3 t) + 0.5 *((delta i j)*(pMinQ k) + (delta i k)*(pMinQ j) 
       + (delta j k) * (pMinQ i))*(boys 2 t))
   where 
-    !t = (a1 + a2)*(a3 + a4)/(a1 + a2 + a3 + a4) * euclidean2 p q
+    !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
     pMinQ x = p @@ x - q @@ x
-    qMinP x = q @@ x - p @@ x
     s1 = a1 + a2
     s2 = a3 + a4
     s4 = s1 + s2
@@ -249,17 +249,16 @@ g i j k 0 g1 g2 g3 g4 =
     a4 = alpha g4
 
 -- G0ijk == Gi0jk
-g 0 i j k g1 g2 g3 g4 = g i 0 j k g1 g2 g3 g4
-g i 0 j k g1 g2 g3 g4 = 
+g (0,i,j,k) gs = g (i,0,j,k) gs
+g (i,0,j,k) (g1,g2,g3,g4) = 
   (-s1)/(s4^2)*(s1*s2/s4 * (pMinQ i)*(pMinQ j)*(pMinQ k) * (boys 3 t)
   - 0.5 *(boys 2 t) *((delta i j)*(pMinQ j) + (delta i k)*(pMinQ j) 
   + (delta j k) * (pMinQ i)) )
   where 
-    !t = (a1 + a2)*(a3 + a4)/(a1 + a2 + a3 + a4) * euclidean2 p q
+    !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
     pMinQ x = p @@ x - q @@ x
-    qMinP x = q @@ x - p @@ x
     s1 = a1 + a2
     s2 = a3 + a4
     s4 = s1 + s2
@@ -269,7 +268,7 @@ g i 0 j k g1 g2 g3 g4 =
     a4 = alpha g4
 
 
-g i j k l g1 g2 g3 g4 = 
+g (i,j,k,l) (g1,g2,g3,g4) = 
     1.0/s4^2 * ((s1^2 * s2^2 / s4^2)*(pMinQ i)*(pMinQ j)*(qMinP k)
     *(qMinP l)*(boys 4 t) - 0.5*s1*s2/s4 *(boys 3 t) *
     (
@@ -280,7 +279,7 @@ g i j k l g1 g2 g3 g4 =
     )
     + 0.25*((delta i j)*(delta k l) + (delta i l)*(delta j k))*(boys 2 t))
   where
-    !t = (a1 + a2)*(a3 + a4)/(a1 + a2 + a3 + a4) * euclidean2 p q
+    !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
     pMinQ x = p @@ x - q @@ x
@@ -361,8 +360,9 @@ nuclearIntegral nuclearCharges g1 g2
     j = pAxis g2
 {-# INLINE nuclearIntegral #-}
 
+-- 0 2 2 5 seems to be wrong!
 twoElectronIntegral :: Gaussian -> Gaussian -> Gaussian -> Gaussian -> Double
-twoElectronIntegral g1 g2 g3 g4 
+twoElectronIntegral a b c d 
   -- <SaSb|ScSd>
   | ssss =
     factor * (s00ab) * (s00cd) * g0000
@@ -371,18 +371,18 @@ twoElectronIntegral g1 g2 g3 g4
     factor * ((si0 * s00cd * g0000) + (s00ab * s00cd * gi000))
   -- <PaPb|ScSd>
   | ppss =
-    factor * (sij * s00cd * g0000 + si0 * s00cd * g0j00
-             + s0j * s00cd * gi000 + s00ab * s00cd * gij00)
+    factor * ((sij * s00cd * g0000) + (si0 * s00cd * g0j00)
+             + (s0j * s00cd * gi000) + (s00ab * s00cd * gij00))
   -- <PaSb|PcSd>
   | psps =
-    factor * (si0 * s00cd * g00k0 + si0 * sk0 * g0000 
-    + s00ab * s00cd * gi0k0 + s00ab * sk0 * gi000)
+    factor * ((si0 * s00cd * g00k0) + (si0 * sk0 * g0000)
+    + (s00ab * s00cd * gi0k0) + (s00ab * sk0 * gi000))
   -- <PaPb|PcSd>
   | ppps = 
-    factor * (sij * (sk0 * g0000 + s00cd * g00k0)
-    + si0 * (sk0 * g0j00 + s00cd * g0jk0)
-    + s0j * (sk0 * gi000 + s00cd * gi0k0)
-    + s00ab * (sk0 * gij00 + s00cd * gijk0 ))
+    factor * ((sij * (sk0 * g0000 + s00cd * g00k0))
+           + (si0 * (sk0 * g0j00 + s00cd * g0jk0))
+           + (s0j * (sk0 * gi000 + s00cd * gi0k0))
+           + (s00ab * (sk0 * gij00 + s00cd * gijk0)))
   -- <PaPb|PcPd>
   | pppp =
     factor * (sij * (skl * g0000 + sk0 * g000l + s0l * g00k0 + s00cd * g00kl) 
@@ -390,46 +390,46 @@ twoElectronIntegral g1 g2 g3 g4
     + s0j * (skl * gi000 + sk0 * gi00l + s0l * gi0k0 + s00cd * gi0kl)
     + s00ab * (skl * gij00 + sk0 * gij0l + s0l * gijk0 + s00cd * gijkl))
   where
-    ssss = sType g1 && sType g2 && sType g3 && sType g4
-    psss = pType g1 && sType g2 && sType g3 && sType g4
-    ppss = pType g1 && pType g2 && sType g3 && sType g4
-    psps = pType g1 && sType g2 && pType g3 && sType g4
-    ppps = pType g1 && pType g2 && pType g3 && sType g4 
-    pppp = pType g1 && pType g2 && pType g3 && pType g4 
-    !s00ab = s 0 0 g1 g2
-    !s00cd = s 0 0 g3 g4
-    sij = s i j g1 g2
-    skl = s k l g3 g4
-    si0 = s i 0 g1 g2
-    sk0 = s k 0 g3 g4
-    s0j = s 0 j g1 g2
-    s0l = s 0 l g3 g4
+    ssss = sType a && sType b && sType c && sType d
+    psss = pType a && sType b && sType c && sType d
+    ppss = pType a && pType b && sType c && sType d
+    psps = pType a && sType b && pType c && sType d
+    ppps = pType a && pType b && pType c && sType d 
+    pppp = pType a && pType b && pType c && pType d 
+    !s00ab = s 0 0 a b
+    !s00cd = s 0 0 c d
+    sij = s i j a b
+    skl = s k l c d
+    si0 = s i 0 a b
+    sk0 = s k 0 c d
+    s0j = s 0 j a b
+    s0l = s 0 l c d
     !factor = 2.0 * (s1 * s2 / (pi * s4))**0.5
-    !g0000 = g 0 0 0 0 g1 g2 g3 g4
-    gi000 = g i 0 0 0 g1 g2 g3 g4
-    g0j00 = g 0 j 0 0 g1 g2 g3 g4
-    g00k0 = g 0 0 k 0 g1 g2 g3 g4
-    g000l = g 0 0 0 l g1 g2 g3 g4
-    gij00 = g i j 0 0 g1 g2 g3 g4
-    g0jk0 = g 0 j k 0 g1 g2 g3 g4
-    g00kl = g 0 0 k l g1 g2 g3 g4
-    gijk0 = g i j k 0 g1 g2 g3 g4
-    g0jkl = g 0 j k l g1 g2 g3 g4
-    gi0k0 = g i 0 k 0 g1 g2 g3 g4
-    gi00l = g i 0 0 l g1 g2 g3 g4
-    gi0kl = g i 0 k l g1 g2 g3 g4
-    gijkl = g i j k l g1 g2 g3 g4
-    g0j0l = g 0 j 0 l g1 g2 g3 g4
-    gij0l = g i j 0 l g1 g2 g3 g4
-    !i = pAxis g1
-    !j = pAxis g2
-    !k = pAxis g3
-    !l = pAxis g4
+    !g0000 = g (0,0,0,0) (a,b,c,d)
+    gi000 = g (i,0,0,0) (a,b,c,d)
+    g0j00 = g (0,j,0,0) (a,b,c,d)
+    g00k0 = g (0,0,k,0) (a,b,c,d)
+    g000l = g (0,0,0,l) (a,b,c,d)
+    gij00 = g (i,j,0,0) (a,b,c,d)
+    g0jk0 = g (0,j,k,0) (a,b,c,d)
+    g00kl = g (0,0,k,l) (a,b,c,d)
+    gijk0 = g (i,j,k,0) (a,b,c,d)
+    g0jkl = g (0,j,k,l) (a,b,c,d)
+    gi0k0 = g (i,0,k,0) (a,b,c,d)
+    gi00l = g (i,0,0,l) (a,b,c,d)
+    gi0kl = g (i,0,k,l) (a,b,c,d)
+    gijkl = g (i,j,k,l) (a,b,c,d)
+    g0j0l = g (0,j,0,l) (a,b,c,d)
+    gij0l = g (i,j,0,l) (a,b,c,d)
+    !i = pAxis a
+    !j = pAxis b
+    !k = pAxis c
+    !l = pAxis d
     !s1 = a1 + a2
     !s2 = a3 + a4
     !s4 = s1 + s2
-    !a1 = alpha g1
-    !a2 = alpha g2
-    !a3 = alpha g3
-    !a4 = alpha g4
+    !a1 = alpha a
+    !a2 = alpha b
+    !a3 = alpha c
+    !a4 = alpha d
 {-# INLINE twoElectronIntegral #-}

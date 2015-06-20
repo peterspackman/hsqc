@@ -8,7 +8,15 @@ data Gaussian =
            , xIndex :: Int
            , yIndex :: Int
            , zIndex :: Int
-           } deriving (Show, Eq)
+           } deriving (Eq)
+
+instance Show Gaussian where
+    show g 
+      | xIndex g > 0 = "<Px: " ++ (show $ alpha g) ++ ">"
+      | yIndex g > 0 = "<Py: " ++ (show $ alpha g) ++ ">"
+      | zIndex g > 0 = "<Pz: " ++ (show $ alpha g) ++ ">"
+      | otherwise = "<S: " ++ (show $ alpha g) ++ ">"
+
 
 instance Ord Gaussian where
     compare Gaussian {xIndex = x1, yIndex = y1, zIndex = z1}

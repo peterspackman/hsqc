@@ -25,11 +25,7 @@ executable hsqc
     -threaded 
     -fno-liberate-case 
     -funbox-strict-fields 
-    -fexpose-all-unfoldings 
-    -funfolding-keeness-factor1000 
     -fsimpl-tick-factor=500 
-    -fllvm 
-    -optlo-O3
   build-depends:       base >=4.6 && <4.9,
                        split >= 0.2, 
                        random >= 1.0,

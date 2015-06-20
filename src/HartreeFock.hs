@@ -10,6 +10,7 @@ import Element hiding (atomicNumber)
 import Geometry
 import Matrix (force, row, col)
 import Point3D (Point3D, euclidean)
+import Debug.Trace
 maxIterations = 10
 
 data Energies = Energies 
@@ -19,7 +20,7 @@ data Energies = Energies
               , een :: Double
               , ep :: Double
               , ek :: Double
-              }
+              } deriving Show
 
 data System = System { atoms :: Geometry
                      , densityMatrix :: Array U DIM2 Double
@@ -39,15 +40,22 @@ instance Show System where
 gMatrix :: (Array U DIM4 Double) -> (Array U DIM2 Double) -> (Array U DIM2 Double)
 gMatrix twoElectron p =
     force $ fromFunction (extent p) g
-    -- ix <=> index
     where
-      g = (\ix -> sumAllS $! (p *^ (((j ix) -^ (Repa.map (*0.5) (k ix))))))
-      j ix =  slice twoElectron (Z:.(col ix):.(row ix):.All:.All)
-      k ix =  slice twoElectron (Z:.(col ix):.All:.All:.(row ix))
+      -- (ab|cd) = integrals,
+      -- sum ix = sum over cd 
+      -- g (a,b) = SUM over c,d p(c,d) * [(ab|cd) - 0.5 (ad|bc)]
+      g = (\ix -> 2.0 * (sumAllS $! (p  *^ (((j ix) -^ (Repa.map (*0.5) (k ix)))))))
+      -- coulomb
+      j ix =  slice twoElectron (Z:.(row ix):.(col ix):.All:.All)
+      -- exchange
+      k ix =  slice twoElectron (Z:.(row ix):.All:.(col ix):.All)
+
+
+
 
 fockMatrix :: Matrix Double -> Array U DIM2 Double -> Matrix Double
 fockMatrix hcore g = 
-    hcore + gmat
+    (trace (show gmat)) (hcore + gmat)
     where 
     (Z:.rows:._) = extent g
     gmat = reshape rows (fromList (Repa.toList g))
@@ -59,7 +67,7 @@ scf System { atoms = a
            , coreHamiltonian = h
            , transformation = x
            } =
-    System a newDensityMatrix t h x totalEnergy electronicEnergy 
+    (System a newDensityMatrix t h x totalEnergy electronicEnergy)
     where
       g = gMatrix t p
       n = row (extent p)
@@ -70,11 +78,12 @@ scf System { atoms = a
       totalEnergy = nuc + electronicEnergy
       c = coefficientMatrix f x
       newDensityMatrix = pMatrix c
+      energies = Energies totalEnergy electronicEnergy  nuc  0 0 0
 
 
 nuclearEnergy :: [Atom] -> Double
 nuclearEnergy atoms =
-    sum (energy <$> [(a,b) | a <- atoms, b <- atoms, not (a == b)])
+    0.5 * sum (energy <$> [(a,b) | a <- atoms, b <- atoms, not (a == b)])
     where
       energy (a,b) = (fromIntegral ((charge a) * (charge b))) / (distance a b)
       charge a = atomicNumber a 
@@ -114,7 +123,7 @@ initSystem atoms basisSet =
               Nothing -> undefined
     o = overlapMatrix basis
     n = length basis
-    p = fromListUnboxed (Z:.(n::Int):.(n::Int)) (replicate (n*n) 0 ::[Double])
+    p = soad basis
     k = kineticMatrix basis
     v = nuclearMatrix atoms basis
     h = k + v
@@ -137,6 +146,13 @@ sameAtom :: STONG -> STONG -> Bool
 sameAtom a b = (atom a == atom b)
 
 soad basis =
-    undefined
+    force $ fromFunction (Z:.((n)::Int):.((n)::Int)) vals
   where
-    numOrbitals = length basis
+    vals = (\(Z:.i:.j) -> if i == j then diag !! i else 0.0)
+    diag = [1,1,2/3,2/3,2/3,0.5,0.5::Double]
+    n = length basis
+
+-- e.g. 3 basis functions 2 electrons -> density = 2/3
+soadValue nbasis ne =
+    ne/nbasis
+
