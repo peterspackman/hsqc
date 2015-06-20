@@ -161,7 +161,7 @@ g (i,0,0,0) (g1,g2,g3,g4) = ((-s2)/s4) * (pMinQ i) * boys 1 t
     a3 = alpha g3
     a4 = alpha g4
 
--- G00k0 == G000l
+-- G00i0 == G000i
 g (0,0,i,0) gs = g (0,0,0,i) gs
 g (0,0,0,i) (g1,g2,g3,g4) = (-s1)/s4 * (qMinP i) * boys 1 t
   where
@@ -179,13 +179,13 @@ g (0,0,0,i) (g1,g2,g3,g4) = (-s1)/s4 * (qMinP i) * boys 1 t
 
 -- Gij00 
 g (i,j,0,0) (g1,g2,g3,g4) = 
-  (trace ("Gij00"))
   (s2/s4) * ((s2/s4)*(pMinQ i)*(pMinQ j)*(boys 2 t) - (delta i j)*(boys 1 t)/(2.0*s1))
   where
     !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
     pMinQ x = p @@ x - q @@ x
+    qMinP x = q @@ x - p @@ x
     s1 = a1 + a2
     s2 = a3 + a4
     s4 = s1 + s2
@@ -215,12 +215,13 @@ g (i,0,j,0) gs = g (i,0,0,j) gs
 g (0,i,j,0) gs = g (i,0,0,j) gs
 g (0,i,0,j) gs = g (i,0,0,j) gs
 g (i,0,0,j) (g1,g2,g3,g4) =
-  1.0/s4 *((s1*s2)/s4 * (pMinQ i) * (pMinQ i)*(boys 2 t) - (delta i j)*(boys 1 t)* 0.5)
+  (((s1*s2)/s4) * (pMinQ i) * (qMinP j)*(boys 2 t) + 0.5*(delta i j)*(boys 1 t))/s4
   where 
     !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
     pMinQ x = p @@ x - q @@ x
+    qMinP x = q @@ x - p @@ x
     s1 = a1 + a2
     s2 = a3 + a4
     s4 = s1 + s2
@@ -232,7 +233,7 @@ g (i,0,0,j) (g1,g2,g3,g4) =
 -- Gijk0 == Gij0k
 g (i,j,0,k) gs = g (i,j,k,0) gs
 g (i,j,k,0) (g1,g2,g3,g4) =
-    (-s2)/(s4^2)*(s1*s2/s4 * (pMinQ i)*(pMinQ j)*(pMinQ k)
+    (-s2)/(s4^2)*(s1*s2/s4 * (pMinQ i)*(pMinQ j)*(qMinP k)
     * (boys 3 t) + 0.5 *((delta i j)*(pMinQ k) + (delta i k)*(pMinQ j) 
       + (delta j k) * (pMinQ i))*(boys 2 t))
   where 
@@ -240,6 +241,7 @@ g (i,j,k,0) (g1,g2,g3,g4) =
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
     pMinQ x = p @@ x - q @@ x
+    qMinP x = q @@ x - p @@ x
     s1 = a1 + a2
     s2 = a3 + a4
     s4 = s1 + s2
@@ -251,14 +253,15 @@ g (i,j,k,0) (g1,g2,g3,g4) =
 -- G0ijk == Gi0jk
 g (0,i,j,k) gs = g (i,0,j,k) gs
 g (i,0,j,k) (g1,g2,g3,g4) = 
-  (-s1)/(s4^2)*(s1*s2/s4 * (pMinQ i)*(pMinQ j)*(pMinQ k) * (boys 3 t)
-  - 0.5 *(boys 2 t) *((delta i j)*(pMinQ j) + (delta i k)*(pMinQ j) 
+  (-s1)/(s4^2)*(s1*s2/s4 * (pMinQ i)*(qMinP j)*(qMinP k) * (boys 3 t)
+  - 0.5 *(boys 2 t) *((delta i j)*(pMinQ k) + (delta i k)*(pMinQ j) 
   + (delta j k) * (pMinQ i)) )
   where 
     !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
     q = centerOfProduct g3 g4
     pMinQ x = p @@ x - q @@ x
+    qMinP x = q @@ x - p @@ x
     s1 = a1 + a2
     s2 = a3 + a4
     s4 = s1 + s2
@@ -275,9 +278,13 @@ g (i,j,k,l) (g1,g2,g3,g4) =
      (delta i j)*(pMinQ k)*(pMinQ l)
     +(delta i k)*(pMinQ j)*(pMinQ l)
     +(delta i l)*(pMinQ j)*(pMinQ k)
+    +(delta j k)*(pMinQ i)*(pMinQ l)
+    +(delta j l)*(pMinQ i)*(pMinQ k)
     +(delta k l)*(pMinQ i)*(pMinQ j)
     )
-    + 0.25*((delta i j)*(delta k l) + (delta i l)*(delta j k))*(boys 2 t))
+    + 0.25*((delta i j)*(delta k l) 
+            + (delta i k)*(delta j l)
+            + (delta i l)*(delta j k))*(boys 2 t))
   where
     !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
@@ -375,8 +382,8 @@ twoElectronIntegral a b c d
              + (s0j * s00cd * gi000) + (s00ab * s00cd * gij00))
   -- <PaSb|PcSd>
   | psps =
-    factor * ((si0 * s00cd * g00k0) + (si0 * sk0 * g0000)
-    + (s00ab * s00cd * gi0k0) + (s00ab * sk0 * gi000))
+    factor * (si0 * ((s00cd * g00k0) + (sk0 * g0000))
+    + s00ab * ((s00cd * gi0k0) + (sk0 * gi000)))
   -- <PaPb|PcSd>
   | ppps = 
     factor * ((sij * (sk0 * g0000 + s00cd * g00k0))

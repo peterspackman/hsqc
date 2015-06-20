@@ -57,33 +57,6 @@ format sep f m = intersperse sep (map f (toList m))
 
 formatFixed d x = format " " (printf ("%."++show d++"f")) $ x
 
-mmultP :: Monad m
-       => Array U DIM2 Double
-       -> Array U DIM2 Double
-       -> m (Array U DIM2 Double)
-mmultP arr brr = do
-    trr <- transpose2P brr
-    let (Z:.h1:._) = extent arr
-    let (Z:._:.w2) = extent brr
-    computeP
-      $ fromFunction (Z:.h1:.w2)
-      $ \ix -> R.sumAllS
-            $ R.zipWith (*)
-              (unsafeSlice arr (Any:.(row ix):.All))
-              (unsafeSlice trr (Any:.(col ix):.All))
-{-# NOINLINE mmultP #-}
-
-transpose2P :: Monad m
-            => Array U DIM2 Double
-            -> m (Array U DIM2 Double)
-transpose2P arr = 
-    computeUnboxedP
-    $ unsafeBackpermute new_extent swap arr
-    where
-      swap (Z:.i:.j) = Z:.j:.i
-      new_extent = swap (extent arr)
-{-# INLINE transpose2P #-}
-
 row :: DIM2 -> Int
 row (Z:.r:._) = r
 {-# INLINE row #-}
@@ -91,3 +64,9 @@ row (Z:.r:._) = r
 col :: DIM2 -> Int
 col (Z:._:.c) = c
 {-# INLINE col #-}
+
+fromDiagonal d =
+    fromFunction (Z:.n:.n) vals
+    where
+      vals = (\ix -> if (row ix == col ix) then d !! (row ix) else 0.0)
+      n = length d

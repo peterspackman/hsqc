@@ -3,12 +3,12 @@ module HartreeFock where
 import Data.List (sortBy)
 import Numeric.LinearAlgebra hiding (Element)
 import Data.Array.Repa hiding ((++), sum, map, zipWith, replicate, reshape, toList)
-import qualified Data.Array.Repa as Repa (map, reshape, toList)
+import qualified Data.Array.Repa as Repa (map, reshape, toList, transpose)
 import BasisFunction
 import STO3G
 import Element hiding (atomicNumber)
 import Geometry
-import Matrix (force, row, col)
+import Matrix (fromDiagonal, force, row, col)
 import Point3D (Point3D, euclidean)
 import Debug.Trace
 maxIterations = 10
@@ -26,7 +26,7 @@ data System = System { atoms :: Geometry
                      , densityMatrix :: Array U DIM2 Double
                      , integrals :: Array U DIM4 Double
                      , coreHamiltonian :: Matrix Double
-                     , transformation :: Matrix Double
+                     , overlap :: Matrix Double
                      , totalEnergy :: Double
                      , electronicEnergy :: Double
                      }
@@ -39,23 +39,24 @@ instance Show System where
 -- j == Coulomb, k == exchange
 gMatrix :: (Array U DIM4 Double) -> (Array U DIM2 Double) -> (Array U DIM2 Double)
 gMatrix twoElectron p =
-    force $ fromFunction (extent p) g
-    where
-      -- (ab|cd) = integrals,
-      -- sum ix = sum over cd 
-      -- g (a,b) = SUM over c,d p(c,d) * [(ab|cd) - 0.5 (ad|bc)]
-      g = (\ix -> 2.0 * (sumAllS $! (p  *^ (((j ix) -^ (Repa.map (*0.5) (k ix)))))))
-      -- coulomb
-      j ix =  slice twoElectron (Z:.(row ix):.(col ix):.All:.All)
-      -- exchange
-      k ix =  slice twoElectron (Z:.(row ix):.All:.(col ix):.All)
-
+  force $ fromFunction (extent p) g
+  where
+    -- (ab|cd) = integrals,
+    -- sum ix = sum over cd 
+    -- g (a,b) = SUM over c,d p(c,d) * [(ab|cd) - 0.5 (ad|bc)]
+    
+    g = (\ix -> 2.0 * (sumAllS $! (p *^ (j ix)) -^ (p *^ (Repa.map (*0.5) (k ix)))))
+    -- coulomb
+    j ix =  slice twoElectron (Z:.(col ix):.(row ix):.All:.All)
+    -- exchange
+    k ix =  slice twoElectron (Z:.All:.(col ix):.All:.(row ix))
 
 
 
 fockMatrix :: Matrix Double -> Array U DIM2 Double -> Matrix Double
 fockMatrix hcore g = 
-    (trace (show gmat)) (hcore + gmat)
+    (trace $ "G:\n" ++ (show gmat))
+    (hcore + gmat)
     where 
     (Z:.rows:._) = extent g
     gmat = reshape rows (fromList (Repa.toList g))
@@ -65,18 +66,22 @@ scf System { atoms = a
            , densityMatrix = p
            , integrals = t
            , coreHamiltonian = h
-           , transformation = x
+           , overlap = s
            } =
-    (System a newDensityMatrix t h x totalEnergy electronicEnergy)
+    (trace (show energies))
+    (trace $ "Fock:\n" ++ (show f))
+    (trace $ "D:\n" ++ (show pmat))
+    (trace $ "Eigenvectors:\n" ++ (show c))
+    (System a newDensityMatrix t h s totalEnergy electronicEnergy)
     where
       g = gMatrix t p
       n = row (extent p)
       pmat = reshape n (fromList (Repa.toList p))
       f = fockMatrix h g 
-      electronicEnergy = 0.5 * sumElements (pmat * (h + f))
+      electronicEnergy = (sumElements (pmat * (h + f)))
       nuc = nuclearEnergy a
       totalEnergy = nuc + electronicEnergy
-      c = coefficientMatrix f x
+      !c = (coefficientMatrix f s)
       newDensityMatrix = pMatrix c
       energies = Energies totalEnergy electronicEnergy  nuc  0 0 0
 
@@ -89,46 +94,45 @@ nuclearEnergy atoms =
       charge a = atomicNumber a 
       distance Atom {center = r1} Atom {center = r2} = euclidean r1 r2
 
-sortedEigenvectors :: Field t => Matrix t -> Matrix (Complex Double)
-sortedEigenvectors m =
+sortedEigenvectors :: Matrix Double -> Matrix Double -> Matrix Double
+sortedEigenvectors a b =
+    (trace $ "Sorted eigen...\n" ++ (show $ fst . unzip $ sortedVals))
     (fromColumns (snd . unzip $ sortedVals))
   where
-    (values, vectors) = eig m
+    (values, vectors) = geigSH' a b
     sortedVals = sortBy cmpFirst (zip (toList values) (toColumns vectors)) 
-    cmpFirst (a1,b1) (a2,b2) = compare (realPart a1) (realPart a2)
+    cmpFirst (a1,b1) (a2,b2) = compare a1 a2
 
 
 coefficientMatrix :: Matrix Double -> Matrix Double -> Matrix Double
-coefficientMatrix f x =
-    (x <> realC')
+coefficientMatrix f s =
+    c
     where
-      e = eig f'
-      c' = sortedEigenvectors f'
-      f' = (ctrans x) <> f <> x
-      realC' = mapMatrix realPart (c')
+      c = sortedEigenvectors f s
 
 pMatrix :: Matrix Double -> Array U DIM2 Double
 pMatrix cMatrix =
-    force $ fromFunction (Z:.((rows cMatrix)::Int):.((cols cMatrix)::Int)) vals
+    force $ fromFunction (Z:.(rows cMatrix::Int):.(cols cMatrix::Int)) vals
     where
-      vals = (\(Z:.i:.j) -> 2.0 * (cMatrix @@> (i, 0)) * (cMatrix @@> (j, 0)))
+      c = (fromColumns (take 5 (toColumns cMatrix)))
+      d = c <> (trans c)
+      vals = (\(Z:.i:.j) -> (d @@> (i, j)))
 
 
 initSystem :: Geometry -> (Maybe BasisSet) -> System
 initSystem atoms basisSet = 
-  (System atoms p t h x 0.0 0.0)
+  (trace $ "Core hamiltonian:\n" ++ (show h))
+  (System atoms p t h s 0.0 0.0)
   where
     basis = case basisSet of
               Just b -> concat (map (getAtomicOrbital b) atoms)
               Nothing -> undefined
-    o = overlapMatrix basis
+    s = overlapMatrix basis
     n = length basis
     p = soad basis
     k = kineticMatrix basis
     v = nuclearMatrix atoms basis
-    h = k + v
-    (s, u) = eigSH' o
-    x = u <> diag(mapVector (** (-0.5)) s ) <> (ctrans u)
+    h = k + v -- core hamiltonian
     !t = twoElectronMatrix basis
 
 converge :: (a -> a -> Bool) -> [a] -> a
@@ -145,8 +149,9 @@ calculateSCF system eps =
 sameAtom :: STONG -> STONG -> Bool
 sameAtom a b = (atom a == atom b)
 
+soad :: [STONG] -> Array U DIM2 Double
 soad basis =
-    force $ fromFunction (Z:.((n)::Int):.((n)::Int)) vals
+  computeS $ fromDiagonal diag
   where
     vals = (\(Z:.i:.j) -> if i == j then diag !! i else 0.0)
     diag = [1,1,2/3,2/3,2/3,0.5,0.5::Double]
