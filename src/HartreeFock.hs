@@ -2,15 +2,15 @@
 module HartreeFock where
 import Data.List (sortBy)
 import Numeric.LinearAlgebra hiding (Element)
+import qualified Data.Vector.Storable as V
 import Data.Array.Repa hiding ((++), sum, map, zipWith, replicate, reshape, toList)
 import qualified Data.Array.Repa as Repa (map, reshape, toList, transpose)
 import BasisFunction
-import STO3G
+import Shell
 import Element hiding (atomicNumber)
 import Geometry
 import Matrix (fromDiagonal, force, row, col)
 import Point3D (Point3D, euclidean)
-import Debug.Trace
 maxIterations = 10
 
 data Energies = Energies 
@@ -23,18 +23,20 @@ data Energies = Energies
               } deriving Show
 
 data System = System { atoms :: Geometry
+                     , numElectrons :: Int
                      , densityMatrix :: Array U DIM2 Double
                      , integrals :: Array U DIM4 Double
                      , coreHamiltonian :: Matrix Double
                      , overlap :: Matrix Double
-                     , totalEnergy :: Double
-                     , electronicEnergy :: Double
+                     , energies :: Energies
                      }
 
 instance Show System where
-    show a = (show $ atoms a) ++ "\nE-total: " ++ (show $ totalEnergy a)
-             ++ "\nE-electronic: " ++ (show $ electronicEnergy a)
-             ++ "\nE-nuc: " ++ (show $ (totalEnergy a - electronicEnergy a))
+    show System {atoms = a, energies = x} = 
+      (unlines $ map show a) 
+      ++ "\nTotal energy: " ++ (show $ e x)
+      ++ "\nElectronic energy: " ++ (show $ ee x)
+      ++ "\nNuclear repulsion energy: " ++ (show $ enn x)
 
 -- j == Coulomb, k == exchange
 gMatrix :: (Array U DIM4 Double) -> (Array U DIM2 Double) -> (Array U DIM2 Double)
@@ -55,7 +57,6 @@ gMatrix twoElectron p =
 
 fockMatrix :: Matrix Double -> Array U DIM2 Double -> Matrix Double
 fockMatrix hcore g = 
-    (trace $ "G:\n" ++ (show gmat))
     (hcore + gmat)
     where 
     (Z:.rows:._) = extent g
@@ -67,23 +68,22 @@ scf System { atoms = a
            , integrals = t
            , coreHamiltonian = h
            , overlap = s
+           , numElectrons = ne
+           , energies = eold
            } =
-    (trace (show energies))
-    (trace $ "Fock:\n" ++ (show f))
-    (trace $ "D:\n" ++ (show pmat))
-    (trace $ "Eigenvectors:\n" ++ (show c))
-    (System a newDensityMatrix t h s totalEnergy electronicEnergy)
+    (System a ne newDensityMatrix t h s e)
     where
       g = gMatrix t p
       n = row (extent p)
       pmat = reshape n (fromList (Repa.toList p))
+      newDensityMatrix = pMatrix ne c
       f = fockMatrix h g 
-      electronicEnergy = (sumElements (pmat * (h + f)))
-      nuc = nuclearEnergy a
-      totalEnergy = nuc + electronicEnergy
       !c = (coefficientMatrix f s)
-      newDensityMatrix = pMatrix c
-      energies = Energies totalEnergy electronicEnergy  nuc  0 0 0
+      -- calculate energies
+      electronicEnergy = (sumElements (pmat * (h + f)))
+      newEnergies Energies { ek = ek, een = een, enn = enn} =
+        Energies (enn + electronicEnergy) electronicEnergy enn een 0.0 ek
+      e = newEnergies eold
 
 
 nuclearEnergy :: [Atom] -> Double
@@ -96,7 +96,6 @@ nuclearEnergy atoms =
 
 sortedEigenvectors :: Matrix Double -> Matrix Double -> Matrix Double
 sortedEigenvectors a b =
-    (trace $ "Sorted eigen...\n" ++ (show $ fst . unzip $ sortedVals))
     (fromColumns (snd . unzip $ sortedVals))
   where
     (values, vectors) = geigSH' a b
@@ -110,31 +109,36 @@ coefficientMatrix f s =
     where
       c = sortedEigenvectors f s
 
-pMatrix :: Matrix Double -> Array U DIM2 Double
-pMatrix cMatrix =
+pMatrix :: Int -> Matrix Double -> Array U DIM2 Double
+pMatrix ne cMatrix =
     force $ fromFunction (Z:.(rows cMatrix::Int):.(cols cMatrix::Int)) vals
     where
-      c = (fromColumns (take 5 (toColumns cMatrix)))
+      c = (fromColumns (take (quot ne 2) (toColumns cMatrix)))
       d = c <> (trans c)
       vals = (\(Z:.i:.j) -> (d @@> (i, j)))
 
 
 initSystem :: Geometry -> (Maybe BasisSet) -> System
 initSystem atoms basisSet = 
-  (trace $ "Core hamiltonian:\n" ++ (show h))
-  (System atoms p t h s 0.0 0.0)
+  (System atoms ne p t h s energies)
   where
     basis = case basisSet of
               Just b -> concat (map (getAtomicOrbital b) atoms)
               Nothing -> undefined
     s = overlapMatrix basis
     n = length basis
-    p = soad basis
+    p = soad basis -- superposition of atomic densities
+    ne = sum $ concat $ map (electronConfig . element) atoms -- number of electrons
     k = kineticMatrix basis
+    enn = nuclearEnergy atoms
+    ek = 2.0 * trace k
+    een = trace v
     v = nuclearMatrix atoms basis
     h = k + v -- core hamiltonian
-    !t = twoElectronMatrix basis
+    energies = (Energies 0 0 enn een 0 ek )
+    !t = twoElectronMatrix basis -- compute the two body integrals
 
+-- Converge an infinite list
 converge :: (a -> a -> Bool) -> [a] -> a
 converge p (x:ys@(y:_))
     | p x y     = y
@@ -142,22 +146,15 @@ converge p (x:ys@(y:_))
 
 calculateSCF :: System -> Double -> System
 calculateSCF system eps =
-    converge (\a b -> (abs ((totalEnergy a) - (totalEnergy b)) < eps)) s
+    converge (\a b -> (abs (e (energies a) - (e (energies b))) < eps)) s
     where
       s = take maxIterations (iterate scf system)
 
-sameAtom :: STONG -> STONG -> Bool
-sameAtom a b = (atom a == atom b)
-
-soad :: [STONG] -> Array U DIM2 Double
+soad :: Basis -> Array U DIM2 Double
 soad basis =
-  computeS $ fromDiagonal diag
-  where
-    vals = (\(Z:.i:.j) -> if i == j then diag !! i else 0.0)
-    diag = [1,1,2/3,2/3,2/3,0.5,0.5::Double]
-    n = length basis
+  computeS $ fromDiagonal (soadDiagonal basis)
 
--- e.g. 3 basis functions 2 electrons -> density = 2/3
-soadValue nbasis ne =
-    ne/nbasis
 
+trace :: Matrix Double -> Double
+trace m =
+  V.sum (takeDiag m)

@@ -13,7 +13,7 @@ data Point3D = Point3D {-# UNPACK #-} !Double
 data Axis = X | Y | Z deriving (Eq, Show)
 
 instance Show Point3D where
-    show (Point3D x y z) = "{" ++ (show x) ++ " " ++ (show y) ++ " " ++ (show z) ++"}"
+    show (Point3D x y z) = "(" ++ (show x) ++ "," ++ (show y) ++ "," ++ (show z) ++")"
 
 instance Storable Point3D where
   sizeOf _ = sizeOf (undefined :: Double) * 3

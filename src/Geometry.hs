@@ -9,9 +9,11 @@ data Atom = Atom { center :: Point3D
                  } deriving (Eq)
 
 instance Show Atom where
-    show a = "" ++ (Element.symbol $ element a) ++ "-" ++ show (center a)
+    show a = 
+      "" ++ (Element.symbol $ element a) ++ ": " ++ show (center a)
 
 type Geometry = [Atom]
+
 
 atomicNumber :: Atom -> Int
 atomicNumber Atom {element = e} = E.atomicNumber e

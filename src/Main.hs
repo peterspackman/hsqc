@@ -6,6 +6,7 @@ import Control.Monad (when)
 import System.Environment
 import HartreeFock
 import System.Console.Docopt
+import Shell
 import STO3G
 import qualified Test as T
 
@@ -33,5 +34,5 @@ main = do
     basisSet <- sto3gBasis
     case parseOnly xyzParser file of
       Left err -> putStrLn $ "Error while parsing " ++ (show path) ++ ": " ++ err
-      Right geom -> print $ (calculateSCF (initSystem geom basisSet) 0.001)
+      Right geom -> print $ (calculateSCF (initSystem geom basisSet) 0.000001)
 
