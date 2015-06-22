@@ -4,39 +4,45 @@ import Data.List (sortBy)
 import Numeric.LinearAlgebra hiding (Element)
 import qualified Data.Vector.Storable as V
 import Data.Array.Repa hiding ((++), sum, map, zipWith, replicate, reshape, toList)
-import qualified Data.Array.Repa as Repa (map, reshape, toList, transpose)
+import qualified Data.Array.Repa as Repa (sumAllS, map, reshape, toList, transpose)
 import BasisFunction
 import Shell
 import Element hiding (atomicNumber)
 import Geometry
 import Matrix (fromDiagonal, force, row, col)
 import Point3D (Point3D, euclidean)
-maxIterations = 10
+maxIterations = 100
 
 data Energies = Energies 
               { e :: Double
               , ee :: Double
               , enn :: Double
               , een :: Double
-              , ep :: Double
               , ek :: Double
-              } deriving Show
+              }
 
 data System = System { atoms :: Geometry
-                     , numElectrons :: Int
-                     , densityMatrix :: Array U DIM2 Double
-                     , integrals :: Array U DIM4 Double
-                     , coreHamiltonian :: Matrix Double
+                     , nElectrons :: Int
+                     , twoBodyIntegrals :: Array U DIM4 Double
+                     , density :: Array U DIM2 Double
+                     , hcore :: Matrix Double
                      , overlap :: Matrix Double
+                     , kinetic :: Matrix Double
+                     , nuclear :: Matrix Double
                      , energies :: Energies
                      }
 
 instance Show System where
     show System {atoms = a, energies = x} = 
       (unlines $ map show a) 
-      ++ "\nTotal energy: " ++ (show $ e x)
-      ++ "\nElectronic energy: " ++ (show $ ee x)
-      ++ "\nNuclear repulsion energy: " ++ (show $ enn x)
+      ++ (show x)
+
+instance Show Energies where
+  show x = 
+    "Total energy: " ++ (show $ e x)
+    ++ "\nElectronic energy: " ++ (show $ ee x)
+    ++ "\nNuclear repulsion energy: " ++ (show $ enn x)
+    ++ "\nKinetic energy: " ++ (show $ ek x)
 
 -- j == Coulomb, k == exchange
 gMatrix :: (Array U DIM4 Double) -> (Array U DIM2 Double) -> (Array U DIM2 Double)
@@ -64,30 +70,33 @@ fockMatrix hcore g =
 
 scf :: System -> System
 scf System { atoms = a
-           , densityMatrix = p
-           , integrals = t
-           , coreHamiltonian = h
+           , density = ρ 
+           , twoBodyIntegrals = t
+           , hcore = h
            , overlap = s
-           , numElectrons = ne
+           , nElectrons = ne
+           , kinetic = k
+           , nuclear = v
            , energies = eold
            } =
-    (System a ne newDensityMatrix t h s e)
+    (System a ne t d h s k v e)
     where
-      g = gMatrix t p
-      n = row (extent p)
-      pmat = reshape n (fromList (Repa.toList p))
-      newDensityMatrix = pMatrix ne c
+      pmat = reshape n (fromList (Repa.toList ρ ))
+      g = gMatrix t ρ 
+      n = row (extent ρ)
+      d = densityMatrix ne c
       f = fockMatrix h g 
       !c = (coefficientMatrix f s)
       -- calculate energies
       electronicEnergy = (sumElements (pmat * (h + f)))
-      newEnergies Energies { ek = ek, een = een, enn = enn} =
-        Energies (enn + electronicEnergy) electronicEnergy enn een 0.0 ek
+      newEnergies Energies { enn = enn} =
+        Energies (enn + electronicEnergy) electronicEnergy enn 
+                 (nuclearAttractionEnergy v pmat) (kineticEnergy k pmat)
       e = newEnergies eold
 
 
-nuclearEnergy :: [Atom] -> Double
-nuclearEnergy atoms =
+nuclearRepulsionEnergy :: Geometry -> Double
+nuclearRepulsionEnergy atoms =
     0.5 * sum (energy <$> [(a,b) | a <- atoms, b <- atoms, not (a == b)])
     where
       energy (a,b) = (fromIntegral ((charge a) * (charge b))) / (distance a b)
@@ -109,33 +118,30 @@ coefficientMatrix f s =
     where
       c = sortedEigenvectors f s
 
-pMatrix :: Int -> Matrix Double -> Array U DIM2 Double
-pMatrix ne cMatrix =
+densityMatrix :: Int -> Matrix Double -> Array U DIM2 Double
+densityMatrix nElectrons cMatrix =
     force $ fromFunction (Z:.(rows cMatrix::Int):.(cols cMatrix::Int)) vals
     where
-      c = (fromColumns (take (quot ne 2) (toColumns cMatrix)))
+      c = (fromColumns (take (quot nElectrons 2) (toColumns cMatrix)))
       d = c <> (trans c)
       vals = (\(Z:.i:.j) -> (d @@> (i, j)))
 
-
-initSystem :: Geometry -> (Maybe BasisSet) -> System
-initSystem atoms basisSet = 
-  (System atoms ne p t h s energies)
+initSystem :: Geometry -> Basis -> System
+initSystem atoms basis = 
+  (System atoms ne t ρ  h s k v energies)
   where
-    basis = case basisSet of
-              Just b -> concat (map (getAtomicOrbital b) atoms)
-              Nothing -> undefined
     s = overlapMatrix basis
     n = length basis
-    p = soad basis -- superposition of atomic densities
+    ρ = soadGuess basis -- superposition of atomic densities
     ne = sum $ concat $ map (electronConfig . element) atoms -- number of electrons
     k = kineticMatrix basis
-    enn = nuclearEnergy atoms
-    ek = 2.0 * trace k
-    een = trace v
+    pmat = reshape n (fromList (Repa.toList ρ))
+    enn = nuclearRepulsionEnergy atoms
+    ek = kineticEnergy k pmat
+    een = nuclearAttractionEnergy v pmat
     v = nuclearMatrix atoms basis
     h = k + v -- core hamiltonian
-    energies = (Energies 0 0 enn een 0 ek )
+    energies = (Energies 0 0 enn een ek )
     !t = twoElectronMatrix basis -- compute the two body integrals
 
 -- Converge an infinite list
@@ -150,10 +156,22 @@ calculateSCF system eps =
     where
       s = take maxIterations (iterate scf system)
 
-soad :: Basis -> Array U DIM2 Double
-soad basis =
+soadGuess :: Basis -> Array U DIM2 Double
+soadGuess basis =
   computeS $ fromDiagonal (soadDiagonal basis)
 
+kineticEnergy :: Matrix Double -> Matrix Double -> Double
+kineticEnergy m ρ =
+     2.0 * (trace (m <> ρ ))
+
+-- probably wrong
+nuclearAttractionEnergy :: Matrix Double -> Matrix Double -> Double
+nuclearAttractionEnergy m ρ =
+     trace (m <> ρ )
+
+rmsd :: Array U DIM2 Double -> Array U DIM2 Double -> Double
+rmsd a b =
+    Repa.sumAllS $ Repa.map (^2) (a -^ b)
 
 trace :: Matrix Double -> Double
 trace m =

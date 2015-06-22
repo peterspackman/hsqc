@@ -21,10 +21,13 @@ type Matrix4D a = R.Array R.U R.DIM4 a
 force :: (R.Shape sh, Unbox e) => R.Array R.D sh e -> R.Array R.U sh e
 force a = runIdentity ( R.computeP a)
 
-kroneckerDelta :: Eq a => a -> a-> Int
+kroneckerDelta :: Eq a => a -> a -> Int
 kroneckerDelta a b
   | a == b = 1
   | otherwise = 0
+
+δ a b = kroneckerDelta a b
+{-# INLINE δ #-}
 
 randomMatrix :: Int -> Int -> Matrix2D Double
 randomMatrix rows columns =
@@ -65,6 +68,7 @@ col :: DIM2 -> Int
 col (Z:._:.c) = c
 {-# INLINE col #-}
 
+fromDiagonal :: [Double] -> Array D DIM2 Double
 fromDiagonal d =
     fromFunction (Z:.n:.n) vals
     where

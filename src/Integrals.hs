@@ -7,7 +7,6 @@ module Integrals ( twoElectronIntegral
                  , boys
                  )
                   where
-
 import Point3D
 import Gaussian
 import qualified Numeric.GSL.Special as GSL
@@ -61,10 +60,10 @@ pOrbitalAxis Gaussian {xIndex = l, yIndex = m, zIndex = n}
 sType g = pAxis g == 0
 {-# INLINE sType #-}
 
-delta i j
+δ i j
   | i == j = 1.0
   | otherwise = 0.0
-{-# INLINE delta #-}
+{-# INLINE δ #-}
 
 s :: Int -> Int -> Gaussian -> Gaussian -> Double
 s i j a b 
@@ -79,7 +78,7 @@ s i j a b
     + 0.5 * dij / (a1 + a2) ) * s00ab
   where
     s00ab = s 0 0 a b
-    !dij = delta i j
+    !dij = δ i j
     !n1 = normalizationFactor a
     !n2 = normalizationFactor b
     !a1 = alpha a
@@ -98,7 +97,7 @@ ell i j c g1 g2
     (c @@ j - p @@ j) * f 1 t
   | otherwise =
     (p @@ i - c @@ i) * (p @@ j - c @@ j) * (f 2 t) 
-    - ((delta i j) * (f 1 t) )/ (2.0 * (a1 + a2))
+    - ((δ i j) * (f 1 t) )/ (2.0 * (a1 + a2))
   where
     !f = boys
     t = (a1 + a2) * euclidean2 p c
@@ -116,7 +115,7 @@ k i j g1 g2
   | i == 0 =
     (-2.0) * a2 * a1^2 / (a1 + a2)^2 *(c2 @@ j - c1 @@ j)
   | otherwise =
-    (delta i j) * a1 * a2 / (a1 + a2)^2
+    (δ i j) * a1 * a2 / (a1 + a2)^2
   where
     n1 = normalizationFactor g1
     n2 = normalizationFactor g2
@@ -179,7 +178,7 @@ g (0,0,0,i) (g1,g2,g3,g4) = (-s1)/s4 * (qMinP i) * boys 1 t
 
 -- Gij00 
 g (i,j,0,0) (g1,g2,g3,g4) = 
-  (s2/s4) * ((s2/s4)*(pMinQ i)*(pMinQ j)*(boys 2 t) - (delta i j)*(boys 1 t)/(2.0*s1))
+  (s2/s4) * ((s2/s4)*(pMinQ i)*(pMinQ j)*(boys 2 t) - (δ i j)*(boys 1 t)/(2.0*s1))
   where
     !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
@@ -196,7 +195,7 @@ g (i,j,0,0) (g1,g2,g3,g4) =
 
 -- G00ij
 g (0,0,i,j) (g1,g2,g3,g4) = 
-  (s1/s4) * ((s1/s4)*(qMinP i)*(qMinP j)*(boys 2 t) - (delta i j)*(boys 1 t)/(2.0*s2))
+  (s1/s4) * ((s1/s4)*(qMinP i)*(qMinP j)*(boys 2 t) - (δ i j)*(boys 1 t)/(2.0*s2))
   where 
     !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
@@ -215,7 +214,7 @@ g (i,0,j,0) gs = g (i,0,0,j) gs
 g (0,i,j,0) gs = g (i,0,0,j) gs
 g (0,i,0,j) gs = g (i,0,0,j) gs
 g (i,0,0,j) (g1,g2,g3,g4) =
-  (((s1*s2)/s4) * (pMinQ i) * (qMinP j)*(boys 2 t) + 0.5*(delta i j)*(boys 1 t))/s4
+  (((s1*s2)/s4) * (pMinQ i) * (qMinP j)*(boys 2 t) + 0.5*(δ i j)*(boys 1 t))/s4
   where 
     !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
@@ -234,8 +233,8 @@ g (i,0,0,j) (g1,g2,g3,g4) =
 g (i,j,0,k) gs = g (i,j,k,0) gs
 g (i,j,k,0) (g1,g2,g3,g4) =
     (-s2)/(s4^2)*(s1*s2/s4 * (pMinQ i)*(pMinQ j)*(qMinP k)
-    * (boys 3 t) + 0.5 *((delta i j)*(pMinQ k) + (delta i k)*(pMinQ j) 
-      + (delta j k) * (pMinQ i))*(boys 2 t))
+    * (boys 3 t) + 0.5 *((δ i j)*(pMinQ k) + (δ i k)*(pMinQ j) 
+      + (δ j k) * (pMinQ i))*(boys 2 t))
   where 
     !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
@@ -254,8 +253,8 @@ g (i,j,k,0) (g1,g2,g3,g4) =
 g (0,i,j,k) gs = g (i,0,j,k) gs
 g (i,0,j,k) (g1,g2,g3,g4) = 
   (-s1)/(s4^2)*(s1*s2/s4 * (pMinQ i)*(qMinP j)*(qMinP k) * (boys 3 t)
-  - 0.5 *(boys 2 t) *((delta i j)*(pMinQ k) + (delta i k)*(pMinQ j) 
-  + (delta j k) * (pMinQ i)) )
+  - 0.5 *(boys 2 t) *((δ i j)*(pMinQ k) + (δ i k)*(pMinQ j) 
+  + (δ j k) * (pMinQ i)) )
   where 
     !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2
@@ -275,16 +274,16 @@ g (i,j,k,l) (g1,g2,g3,g4) =
     1.0/s4^2 * ((s1^2 * s2^2 / s4^2)*(pMinQ i)*(pMinQ j)*(qMinP k)
     *(qMinP l)*(boys 4 t) - 0.5*s1*s2/s4 *(boys 3 t) *
     (
-     (delta i j)*(pMinQ k)*(pMinQ l)
-    +(delta i k)*(pMinQ j)*(pMinQ l)
-    +(delta i l)*(pMinQ j)*(pMinQ k)
-    +(delta j k)*(pMinQ i)*(pMinQ l)
-    +(delta j l)*(pMinQ i)*(pMinQ k)
-    +(delta k l)*(pMinQ i)*(pMinQ j)
+     (δ i j)*(pMinQ k)*(pMinQ l)
+    +(δ i k)*(pMinQ j)*(pMinQ l)
+    +(δ i l)*(pMinQ j)*(pMinQ k)
+    +(δ j k)*(pMinQ i)*(pMinQ l)
+    +(δ j l)*(pMinQ i)*(pMinQ k)
+    +(δ k l)*(pMinQ i)*(pMinQ j)
     )
-    + 0.25*((delta i j)*(delta k l) 
-            + (delta i k)*(delta j l)
-            + (delta i l)*(delta j k))*(boys 2 t))
+    + 0.25*((δ i j)*(δ k l) 
+            + (δ i k)*(δ j l)
+            + (δ i l)*(δ j k))*(boys 2 t))
   where
     !t = (s1*s2/s4) * euclidean2 p q
     p = centerOfProduct g1 g2

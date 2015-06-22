@@ -24,7 +24,6 @@ import Shell
 import Gaussian
 import Element (atomicNumber, electronConfig)
 
-type Basis = [Shell]
 
 contraction :: Basis -> ([Gaussian] -> Double) -> Double
 contraction !bs integral =

@@ -7,7 +7,7 @@ import System.Environment
 import HartreeFock
 import System.Console.Docopt
 import Shell
-import STO3G
+import BasisSets
 import qualified Test as T
 
 patterns :: Docopt
@@ -15,24 +15,19 @@ patterns = [docoptFile|USAGE.txt|]
 
 getArgOrExit = getArgOrExitWith patterns
 
-water = do
+formGeometry path = do
   file <- B.readFile $ path
-  Just b <- sto3gBasis
   case parseOnly xyzParser file of
-      Right geom -> return $ concat (map (getAtomicOrbital b) geom)
-  where
-    path = "h2o.xyz" :: FilePath
+      Right geom -> return geom
+      Left err -> fail $ "Error while parsing " ++ (show path) ++ ": " ++ err
 
 
 main :: IO ()
 main = do
   args <- parseArgsOrExit patterns =<< getArgs
-
   when (args `isPresent` (command "scf")) $ do
     path <- args `getArgOrExit` (argument "file")
-    file <- B.readFile $ path
-    basisSet <- sto3gBasis
-    case parseOnly xyzParser file of
-      Left err -> putStrLn $ "Error while parsing " ++ (show path) ++ ": " ++ err
-      Right geom -> print $ (calculateSCF (initSystem geom basisSet) 0.000001)
+    geom <- formGeometry path
+    basis <- formBasis "STO-3G" geom
+    print $ (calculateSCF (initSystem geom basis) 1e-8)
 

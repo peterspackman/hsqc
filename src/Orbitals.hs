@@ -7,8 +7,6 @@ type Triplet = (Int, Int, Int)
 class BasisFunction b where
   overlap :: (Num a) => b -> b -> a
 
-type Basis a = [a] 
-
 instance Ord Orbital where
     compare (S _) (P _ _) = LT
     compare (P _ _) (S _) = GT
