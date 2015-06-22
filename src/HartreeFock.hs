@@ -9,6 +9,7 @@ import BasisFunction
 import Shell
 import Element hiding (atomicNumber)
 import Geometry
+import Data.List (unfoldr)
 import Matrix (genEigSH, fromDiagonal, force, row, col)
 import Point3D (Point3D, euclidean)
 
@@ -31,6 +32,7 @@ data System = System { atoms :: Geometry
                      , kinetic :: Matrix Double
                      , nuclear :: Matrix Double
                      , energies :: Energies
+                     , converged :: Bool
                      }
 
 instance Show System where
@@ -76,9 +78,9 @@ scf System { atoms = a
            , nElectrons = ne
            , kinetic = k
            , nuclear = v
-           , energies = eold
+           , energies = oldEHF
            } =
-    (System a ne t d h s k v e)
+    (System a ne t d h s k v ehf done)
     where
       pmat = reshape n (fromList (Repa.toList ρ ))
       g = twoBodyFockMatrix t ρ 
@@ -86,12 +88,13 @@ scf System { atoms = a
       d = densityMatrix ne c
       f = fockMatrix h g 
       !c = (coefficientMatrix f s)
+      done = (abs ((e ehf) - (e oldEHF))) < 1e-12
       -- calculate energies
       electronicEnergy = (sumElements (pmat * (h + f)))
       newEnergies Energies { enn = enn} =
         Energies (enn + electronicEnergy) electronicEnergy enn 
                  (nuclearAttractionEnergy v pmat) (kineticEnergy k pmat)
-      e = newEnergies eold
+      ehf = newEnergies oldEHF
 
 
 -- Appear to be counting the energy twice, may need a fix
@@ -117,7 +120,7 @@ densityMatrix nElectrons cMatrix =
 
 initSystem :: Geometry -> Basis -> System
 initSystem atoms basis = 
-  (System atoms ne t ρ  h s k v energies)
+  (System atoms ne t ρ  h s k v energies False)
   where
     s = overlapMatrix basis
     n = length basis
@@ -139,11 +142,13 @@ converge p (x:ys@(y:_))
     | p x y     = y
     | otherwise = converge p ys
 
-calculateSCF :: System -> Double -> System
-calculateSCF system eps =
-    converge (\a b -> (abs (e (energies a) - (e (energies b))) < eps)) s
+calculateSCF :: System -> (System, Int)
+calculateSCF system =
+    (last s, length s)
     where
-      s = take maxIterations (iterate scf system)
+      s = take maxIterations (series system)
+      series = unfoldr (\x -> if (converged x) then Nothing else Just (x, scf x))
+
 
 soadGuess :: Basis -> Array U DIM2 Double
 soadGuess basis =
