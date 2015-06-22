@@ -22,6 +22,7 @@ import Data.List (sort, sortBy, groupBy)
 import Integrals
 import Shell
 import Gaussian
+import Orbitals hiding (X, Y, Z)
 import Element (atomicNumber, electronConfig)
 
 
@@ -84,14 +85,20 @@ sortBasisFunctions b1 b2 b3 b4 =
 -- smear the electrons across the shells,
 -- filling up s orbitals first, then p orbitals.
 -- Will need changes for d orbitals!
-smearElectrons :: Int -> Basis  -> [Double]
-smearElectrons ne (s:[]) = [(fromIntegral ne) * 0.5]
-smearElectrons ne (s:ps) 
-  | ne > 2 = 1.0:(replicate np (0.5 * remaining/(fromIntegral np)))
-  | otherwise = smearElectrons ne [s] 
+smearElectrons :: Int -> Basis -> [Double]
+smearElectrons 0 bs = []
+smearElectrons ne bs = 
+  (replicate nshells val) ++ (smearElectrons (ne - eUsed) right)
   where
-    remaining = fromIntegral (ne - 2)
-    np = length ps
+    val = (fromIntegral eUsed) / (fromIntegral (2 * nshells))
+    shell = orbital $ head bs
+    eUsed -- check if we can use all available electrons on this shell
+      | maxElectrons shell < ne = maxElectrons shell
+      | otherwise = ne
+    maxElectrons (S _) = 2
+    maxElectrons (P _ _) = 6
+    (!left, !right) = span ((sameKind shell) . orbital) bs
+    nshells = length left
 
 soadDiagonal :: Basis -> [Double]
 soadDiagonal basis =

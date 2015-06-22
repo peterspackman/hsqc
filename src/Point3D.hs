@@ -4,7 +4,6 @@ import Data.Vector.Storable hiding ((++))
 import qualified Data.Vector.Storable as V
 import Foreign
 import Foreign.C.Types
-import Debug.Trace
 
 data Point3D = Point3D {-# UNPACK #-} !Double
                        {-# UNPACK #-} !Double
@@ -38,11 +37,11 @@ instance Storable Point3D where
 instance Eq Point3D where
     (==) (Point3D a b c) (Point3D a' b' c') = (a == a') && (b == b') && (c == c')
 
-(@@) :: Point3D -> Int -> Double
-(Point3D x y z) @@ i
-  | i == 1 = x
-  | i == 2 = y
-  | i == 3 = z
+(!) :: Point3D -> Int -> Double
+(!) (Point3D x y z) i = 
+  case i of 1 -> x
+            2 -> y
+            3 -> z
 
 (#) :: Point3D -> Axis -> Double
 (Point3D x y z) # ax

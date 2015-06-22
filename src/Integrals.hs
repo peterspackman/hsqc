@@ -7,7 +7,7 @@ module Integrals ( twoElectronIntegral
                  , boys
                  )
                   where
-import Point3D
+import Point3D (Point3D, (!), euclidean2, dmult, ddiv, add, sub)
 import Gaussian
 import qualified Numeric.GSL.Special as GSL
 
@@ -21,13 +21,17 @@ boys m x = k `seq` k / d
     k = GSL.hyperg_1F1 (m + 0.5) (m + 1.5) (-x)
     d = (2 * m) + 1
 
+factorial :: (Enum a, Num a) => a -> a
 factorial n = product [1..n]
 
-centerOfProduct Gaussian {α = α1, center = c1}
-  Gaussian {α = α2, center = c2} =
+
+centerOfProduct :: Gaussian -> Gaussian -> Point3D
+centerOfProduct Gaussian {α = α1, center = c1} Gaussian {α = α2, center = c2} =
     ddiv (add (dmult α1 c1) (dmult α2 c2)) (α1 + α2)
 {-# INLINE centerOfProduct #-}
 
+
+normalizationFactor :: Gaussian -> Double
 normalizationFactor Gaussian {α = α, momenta = (l, m, n) } =
     ((fromIntegral (f1 * f2 * f3)) * ((pi / (2.0*α))**1.5)
     / (fromIntegral (2^(2*(lmn))) * α^lmn)) ** (-0.5)
@@ -37,10 +41,8 @@ normalizationFactor Gaussian {α = α, momenta = (l, m, n) } =
       f1 = f (2*l - 1)
       f2 = f (2*m - 1)
       f3 = f (2*n - 1)
-
 {-# INLINE normalizationFactor #-}
 
-pType g = pAxis g > 0
 
 pAxis :: Gaussian -> Int
 pAxis Gaussian {momenta = (l,m,n)} 
@@ -50,32 +52,31 @@ pAxis Gaussian {momenta = (l,m,n)}
   | otherwise = 0
 {-# INLINE pAxis #-}
 
-pOrbitalAxis :: Gaussian -> Maybe Axis
-pOrbitalAxis Gaussian {momenta = (l,m,n)} 
-  | l > 0 && m == 0 && n == 0 = Just X
-  | l == 0 && m > 0 && n == 0 = Just Y
-  | l == 0 && m == 0 && n > 0 = Just Z
-  | otherwise = Nothing
-{-# INLINE pOrbitalAxis #-}
-
+pType :: Gaussian -> Bool
+pType g = pAxis g > 0
+{-# INLINE pType #-}
+sType :: Gaussian -> Bool
 sType g = pAxis g == 0
 {-# INLINE sType #-}
 
+
+δ :: Eq a => a -> a -> Double
 δ i j
   | i == j = 1.0
   | otherwise = 0.0
 {-# INLINE δ #-}
+
 
 s :: Int -> Int -> Gaussian -> Gaussian -> Double
 s i j a b 
   | (i,j) == (0,0) =
     n1 * n2 * ((pi / (α1 + α2)) ** 1.5 ) * exp (((-α1) * α2)/(α1+α2) * euclidean2 c1 c2)
   | j == 0 =
-    (-α2)/(α1 + α2) * (c1 @@ i - c2 @@ i) * s00ab
+    (-α2)/(α1 + α2) * (c1 ! i - c2 ! i) * s00ab
   | i == 0 =
-    (-α1)/(α1 + α2) * (c2 @@ j - c1 @@ j) * s00ab
+    (-α1)/(α1 + α2) * (c2 ! j - c1 ! j) * s00ab
   | otherwise = 
-    (( (α1 * α2) * (c1 @@ i - c2 @@ i) * (c2 @@ j - c1 @@ j) / ((α1 + α2)^2) )
+    (( (α1 * α2) * (c1 ! i - c2 ! i) * (c2 ! j - c1 ! j) / ((α1 + α2)^2) )
     + 0.5 * dij / (α1 + α2) ) * s00ab
   where
     s00ab = s 0 0 a b
@@ -88,16 +89,17 @@ s i j a b
     !c2 = center b
 {-# INLINE s #-}
 
+
 ell :: Int -> Int -> Point3D -> Gaussian -> Gaussian -> Double
 ell i j c a b
   | i == 0 && j == 0 = 
     f 0 t
   | j == 0 =
-    (c @@ i - p @@ i ) * f 1 t
+    (c ! i - p ! i ) * f 1 t
   | i == 0 =
-    (c @@ j - p @@ j) * f 1 t
+    (c ! j - p ! j) * f 1 t
   | otherwise =
-    (p @@ i - c @@ i) * (p @@ j - c @@ j) * (f 2 t) 
+    (p ! i - c ! i) * (p ! j - c ! j) * (f 2 t) 
     - ((δ i j) * (f 1 t) )/ (2.0 * (α1 + α2))
   where
     !f = boys
@@ -107,14 +109,15 @@ ell i j c a b
     α2 = α b
 {-# INLINE ell #-}
 
+
 k :: Int -> Int -> Gaussian -> Gaussian -> Double
 k i j a b
   | i == 0 && j == 0 =
     3.0 * α1 * α2 / (α1 + α2) - (euclidean2 c1 c2) * (2.0 * α1^2 * α2 ^2)/ (α1 + α2)^2 
   | j == 0 =
-    (-2.0) * α1 * α2^2 / (α1 + α2)^2 *(c1 @@ i - c2 @@ i)
+    (-2.0) * α1 * α2^2 / (α1 + α2)^2 *(c1 ! i - c2 ! i)
   | i == 0 =
-    (-2.0) * α2 * α1^2 / (α1 + α2)^2 *(c2 @@ j - c1 @@ j)
+    (-2.0) * α2 * α1^2 / (α1 + α2)^2 *(c2 ! j - c1 ! j)
   | otherwise =
     (δ i j) * α1 * α2 / (α1 + α2)^2
   where
@@ -126,11 +129,12 @@ k i j a b
     !c2 = center b
 {-# INLINE k #-}
 
+
 -- ABOVE HAS BEEN CHECKED
-type FourIndex = (Int, Int, Int, Int)
+type Quadruplet = (Int, Int, Int, Int)
 type FourGaussian = (Gaussian, Gaussian, Gaussian, Gaussian)
 
-g :: FourIndex -> FourGaussian -> Double
+g :: Quadruplet -> FourGaussian -> Double
 -- G0000
 g (0,0,0,0) (a,b,c,d) = boys 0 t
   where
@@ -140,7 +144,6 @@ g (0,0,0,0) (a,b,c,d) = boys 0 t
     ζ = α a + α b
     η = α c + α d
     ρ = ζ + η
-
 -- Gi000 == G0i00
 g (0,i,0,0) gs = g (i,0,0,0) gs
 g (i,0,0,0) (a,b,c,d) = ((-η)/ρ) * (pMinQ i) * boys 1 t
@@ -148,11 +151,10 @@ g (i,0,0,0) (a,b,c,d) = ((-η)/ρ) * (pMinQ i) * boys 1 t
     !t = ζ * η / ρ * (euclidean2 p q)
     p = centerOfProduct a b
     q = centerOfProduct c d
-    pMinQ x = p @@ x - q @@ x
+    pMinQ x = p ! x - q ! x
     ζ = α a + α b
     η = α c + α d
     ρ = ζ + η
-
 -- G00i0 == G000i
 g (0,0,i,0) gs = g (0,0,0,i) gs
 g (0,0,0,i) (a,b,c,d) = (-ζ)/ρ * (qMinP i) * boys 1 t
@@ -160,11 +162,10 @@ g (0,0,0,i) (a,b,c,d) = (-ζ)/ρ * (qMinP i) * boys 1 t
     !t = ζ * η / ρ * (euclidean2 p q)
     p = centerOfProduct a b
     q = centerOfProduct c d
-    qMinP x = q @@ x - p @@ x
+    qMinP x = q ! x - p ! x
     ζ = α a + α b
     η = α c + α d
     ρ = ζ + η
-
 -- Gij00 
 g (i,j,0,0) (a,b,c,d) = 
   (η/ρ) * ((η/ρ)*(pMinQ i)*(pMinQ j)*(boys 2 t) - (δ i j)*(boys 1 t)/(2.0*ζ))
@@ -172,12 +173,11 @@ g (i,j,0,0) (a,b,c,d) =
     !t = (ζ*η/ρ) * euclidean2 p q
     p = centerOfProduct a b
     q = centerOfProduct c d
-    pMinQ x = p @@ x - q @@ x
-    qMinP x = q @@ x - p @@ x
+    pMinQ x = p ! x - q ! x
+    qMinP x = q ! x - p ! x
     ζ = α a + α b
     η = α c + α d
     ρ = ζ + η
-
 -- G00ij
 g (0,0,i,j) (a,b,c,d) = 
   (ζ/ρ) * ((ζ/ρ)*(qMinP i)*(qMinP j)*(boys 2 t) - (δ i j)*(boys 1 t)/(2.0*η))
@@ -185,11 +185,10 @@ g (0,0,i,j) (a,b,c,d) =
     !t = (ζ*η/ρ) * euclidean2 p q
     p = centerOfProduct a b
     q = centerOfProduct c d
-    qMinP x = q @@ x - p @@ x
+    qMinP x = q ! x - p ! x
     ζ = α a + α b
     η = α c + α d
     ρ = ζ + η
-
 -- Gi0j0 == G0ij0 == G0i0j == Gi00j
 g (i,0,j,0) gs = g (i,0,0,j) gs
 g (0,i,j,0) gs = g (i,0,0,j) gs
@@ -200,12 +199,11 @@ g (i,0,0,j) (a,b,c,d) =
     !t = (ζ*η/ρ) * euclidean2 p q
     p = centerOfProduct a b
     q = centerOfProduct c d
-    pMinQ x = p @@ x - q @@ x
-    qMinP x = q @@ x - p @@ x
+    pMinQ x = p ! x - q ! x
+    qMinP x = q ! x - p ! x
     ζ = α a + α b
     η = α c + α d
     ρ = ζ + η
-
 -- Gijk0 == Gij0k
 g (i,j,0,k) gs = g (i,j,k,0) gs
 g (i,j,k,0) (a,b,c,d) =
@@ -216,12 +214,11 @@ g (i,j,k,0) (a,b,c,d) =
     !t = (ζ*η/ρ) * euclidean2 p q
     p = centerOfProduct a b
     q = centerOfProduct c d
-    pMinQ x = p @@ x - q @@ x
-    qMinP x = q @@ x - p @@ x
+    pMinQ x = p ! x - q ! x
+    qMinP x = q ! x - p ! x
     ζ = α a + α b
     η = α c + α d
     ρ = ζ + η
-
 -- G0ijk == Gi0jk
 g (0,i,j,k) gs = g (i,0,j,k) gs
 g (i,0,j,k) (a,b,c,d) = 
@@ -232,13 +229,12 @@ g (i,0,j,k) (a,b,c,d) =
     !t = (ζ*η/ρ) * euclidean2 p q
     p = centerOfProduct a b
     q = centerOfProduct c d
-    pMinQ x = p @@ x - q @@ x
-    qMinP x = q @@ x - p @@ x
+    pMinQ x = p ! x - q ! x
+    qMinP x = q ! x - p ! x
     ζ = α a + α b
     η = α c + α d
     ρ = ζ + η
-
-
+-- Gijkl
 g (i,j,k,l) (a,b,c,d) = 
     1.0/ρ^2 * ((ζ^2 * η^2 / ρ^2)*(pMinQ i)*(pMinQ j)*(qMinP k)
     *(qMinP l)*(boys 4 t) - 0.5*ζ*η/ρ *(boys 3 t) *
@@ -255,12 +251,13 @@ g (i,j,k,l) (a,b,c,d) =
     !t = (ζ*η/ρ) * euclidean2 p q
     p = centerOfProduct a b
     q = centerOfProduct c d
-    pMinQ x = p @@ x - q @@ x
-    qMinP x = q @@ x - p @@ x
+    pMinQ x = p ! x - q ! x
+    qMinP x = q ! x - p ! x
     ζ = α a + α b
     η = α c + α d
     ρ = ζ + η
 {-# INLINE g #-}
+
 
 overlapIntegral :: Gaussian -> Gaussian -> Double
 overlapIntegral a b 
@@ -281,6 +278,7 @@ overlapIntegral a b
     j = pAxis b
 {-# INLINE overlapIntegral #-}
 
+
 kineticIntegral :: Gaussian -> Gaussian -> Double
 kineticIntegral a b
   | sType a && sType b =
@@ -297,6 +295,7 @@ kineticIntegral a b
     j = pAxis b
 {-# INLINE kineticIntegral #-}
 
+
 nuclearIntegral :: [(Double, Point3D)] -> Gaussian -> Gaussian -> Double
 nuclearIntegral nuclearCharges a b
   | (i,j) == (0,0) =
@@ -304,13 +303,13 @@ nuclearIntegral nuclearCharges a b
       θ * (sum $! zipWith (*) charges (f <$> centers))
   | j == 0 =
     let f c = si0 * (l00 c) + s00 * (li0 c) in
-      θ * (sum $ zipWith (*) charges (f <$> centers))
+      θ * (sum $! zipWith (*) charges (f <$> centers))
   | i == 0 =
     let f c = s0j * (l00 c) + s00 * (l0j c) in
-      θ * (sum $ zipWith (*) charges (f <$> centers))
+      θ * (sum $! zipWith (*) charges (f <$> centers))
   | otherwise = 
     let f c = sij * (l00 c) + si0 * (l0j c) + s0j * (li0 c) + s00 * (lij c) in
-      θ * (sum $ zipWith (*) charges (f <$> centers))
+      θ * (sum $! zipWith (*) charges (f <$> centers))
   where
     -- input of charges/centers subject to change
     (charges, centers) = unzip nuclearCharges
@@ -328,6 +327,7 @@ nuclearIntegral nuclearCharges a b
     i = pAxis a
     j = pAxis b
 {-# INLINE nuclearIntegral #-}
+
 
 twoElectronIntegral :: Gaussian -> Gaussian -> Gaussian -> Gaussian -> Double
 twoElectronIntegral a b c d 
@@ -348,9 +348,9 @@ twoElectronIntegral a b c d
   -- <PaPb|PcSd>
   | ppps = 
     factor * ((sij * (sk0 * g0000 + s00cd * g00k0))
-           + (si0 * (sk0 * g0j00 + s00cd * g0jk0))
-           + (s0j * (sk0 * gi000 + s00cd * gi0k0))
-           + (s00ab * (sk0 * gij00 + s00cd * gijk0)))
+           + ( si0 * (sk0 * g0j00 + s00cd * g0jk0))
+           + ( s0j * (sk0 * gi000 + s00cd * gi0k0))
+           + (s00ab* (sk0 * gij00 + s00cd * gijk0)))
   -- <PaPb|PcPd>
   | pppp =
     factor * (sij * (skl * g0000 + sk0 * g000l + s0l * g00k0 + s00cd * g00kl) 

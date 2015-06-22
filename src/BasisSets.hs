@@ -6,7 +6,7 @@ import Data.Map (Map, (!))
 import Gaussian hiding (center)
 import Data.Aeson
 import Orbitals
-import Point3D hiding (X,Y,Z)
+import Point3D hiding ((!),X,Y,Z)
 import Shell
 import qualified Data.ByteString.Lazy as B
 
@@ -38,7 +38,8 @@ getAtomicOrbitals b a =
       shell (ContractedGaussian i k p c) =
         case k of "p" -> [ng (P i X) p c, ng (P i Y) p c, ng (P i Z) p c]
                   "s" -> [ng (S i) p c]
-      ng k p c = Shell a k c (map (gaussianFromKind (center a) k) p)
+      ng k p c = 
+        (Shell a k c (map (gaussianFromKind (center a) k) p))
 
 
 gaussianFromKind :: Point3D -> Orbital -> Double -> Gaussian
