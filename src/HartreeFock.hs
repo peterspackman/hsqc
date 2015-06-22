@@ -9,8 +9,9 @@ import BasisFunction
 import Shell
 import Element hiding (atomicNumber)
 import Geometry
-import Matrix (fromDiagonal, force, row, col)
+import Matrix (genEigSH, fromDiagonal, force, row, col)
 import Point3D (Point3D, euclidean)
+
 maxIterations = 100
 
 data Energies = Energies 
@@ -45,20 +46,18 @@ instance Show Energies where
     ++ "\nKinetic energy: " ++ (show $ ek x)
 
 -- j == Coulomb, k == exchange
-gMatrix :: (Array U DIM4 Double) -> (Array U DIM2 Double) -> (Array U DIM2 Double)
-gMatrix twoElectron p =
+twoBodyFockMatrix :: (Array U DIM4 Double) -> (Array U DIM2 Double) -> (Array U DIM2 Double)
+twoBodyFockMatrix twoElectron p =
   force $ fromFunction (extent p) g
   where
     -- (ab|cd) = integrals,
     -- sum ix = sum over cd 
-    -- g (a,b) = SUM over c,d p(c,d) * [(ab|cd) - 0.5 (ad|bc)]
-    
+    -- g (a,b) =  Σ(c,d) p(c,d) * [(ab|cd) - 0.5 (ad|bc)]
     g = (\ix -> 2.0 * (sumAllS $! (p *^ (j ix)) -^ (p *^ (Repa.map (*0.5) (k ix)))))
     -- coulomb
     j ix =  slice twoElectron (Z:.(col ix):.(row ix):.All:.All)
     -- exchange
     k ix =  slice twoElectron (Z:.All:.(col ix):.All:.(row ix))
-
 
 
 fockMatrix :: Matrix Double -> Array U DIM2 Double -> Matrix Double
@@ -82,7 +81,7 @@ scf System { atoms = a
     (System a ne t d h s k v e)
     where
       pmat = reshape n (fromList (Repa.toList ρ ))
-      g = gMatrix t ρ 
+      g = twoBodyFockMatrix t ρ 
       n = row (extent ρ)
       d = densityMatrix ne c
       f = fockMatrix h g 
@@ -95,6 +94,7 @@ scf System { atoms = a
       e = newEnergies eold
 
 
+-- Appear to be counting the energy twice, may need a fix
 nuclearRepulsionEnergy :: Geometry -> Double
 nuclearRepulsionEnergy atoms =
     0.5 * sum (energy <$> [(a,b) | a <- atoms, b <- atoms, not (a == b)])
@@ -103,20 +103,9 @@ nuclearRepulsionEnergy atoms =
       charge a = atomicNumber a 
       distance Atom {center = r1} Atom {center = r2} = euclidean r1 r2
 
-sortedEigenvectors :: Matrix Double -> Matrix Double -> Matrix Double
-sortedEigenvectors a b =
-    (fromColumns (snd . unzip $ sortedVals))
-  where
-    (values, vectors) = geigSH' a b
-    sortedVals = sortBy cmpFirst (zip (toList values) (toColumns vectors)) 
-    cmpFirst (a1,b1) (a2,b2) = compare a1 a2
-
 
 coefficientMatrix :: Matrix Double -> Matrix Double -> Matrix Double
-coefficientMatrix f s =
-    c
-    where
-      c = sortedEigenvectors f s
+coefficientMatrix f s = genEigSH f s
 
 densityMatrix :: Int -> Matrix Double -> Array U DIM2 Double
 densityMatrix nElectrons cMatrix =

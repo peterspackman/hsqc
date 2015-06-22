@@ -12,6 +12,7 @@ import Data.Array.Repa.Algorithms.Randomish (randomishDoubleArray)
 import Data.List
 import Control.Monad.Identity (runIdentity)
 import qualified Data.Text as T
+import Numeric.LinearAlgebra hiding (Element)
 
 
 type Matrix2D a = R.Array R.U R.DIM2 a 
@@ -36,30 +37,6 @@ randomMatrix rows columns =
 random4D w x y z =
     randomishDoubleArray (Z:.(w::Int):.(x::Int):.(y::Int):.(z::Int)) 0.0 100.0 4
 
-dispf d arr = do
-    let dims = listOfShape $ extent arr
-        lines = (chunksOf (2 * head dims) (formatFixed d arr))
-    putStrLn $ show dims
-    mapM_ putStrLn $ map concat lines
-
-fmt :: (Text.Printf.PrintfArg a, Show a) => Int -> a -> String
-fmt d a = 
-    printf formatString $ a
-    where
-      formatString = "%."++show d++"f"
-
-textRepresentation :: Show a => [Char] -> [a] -> String
-textRepresentation sep list = intercalate sep unpackedWords 
-  where words = map show list
-        places = maximum (map length words) + 1
-        textWords = map T.pack words
-        justifiedWords = map (T.justifyRight places ' ') textWords
-        unpackedWords = map T.unpack justifiedWords
-
-format sep f m = intersperse sep (map f (toList m)) 
-
-formatFixed d x = format " " (printf ("%."++show d++"f")) $ x
-
 row :: DIM2 -> Int
 row (Z:.r:._) = r
 {-# INLINE row #-}
@@ -74,3 +51,14 @@ fromDiagonal d =
     where
       vals = (\ix -> if (row ix == col ix) then d !! (row ix) else 0.0)
       n = length d
+
+--
+genEigSH :: Matrix Double -> Matrix Double -> Matrix Double
+genEigSH a b =
+    (fromColumns (snd . unzip $ sortedVals))
+  where
+    (values, vectors) = geigSH' a b
+    sortedVals = sortBy cmpFirst (zip (Numeric.LinearAlgebra.toList values) (toColumns vectors)) 
+    cmpFirst (a1,b1) (a2,b2) = compare a1 a2
+
+

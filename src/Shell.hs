@@ -3,7 +3,6 @@ module Shell where
 import Geometry
 import Orbitals
 import Gaussian hiding (center)
-import Data.Map (Map, (!))
 
 data Shell =
     Shell { atom :: Atom

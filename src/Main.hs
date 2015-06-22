@@ -29,5 +29,5 @@ main = do
     path <- args `getArgOrExit` (argument "file")
     geom <- formGeometry path
     basis <- formBasis "STO-3G" geom
-    print $ (calculateSCF (initSystem geom basis) 1e-8)
+    print $ (calculateSCF (initSystem geom basis) 1e-12) -- convergence at 12 decimal points
 

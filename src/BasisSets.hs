@@ -10,6 +10,9 @@ import Point3D hiding (X, Y, Z)
 import Shell
 import qualified Data.ByteString.Lazy as B
 
+sto3GFile :: FilePath
+sto3GFile = "basis/STO-3G.json"
+
 type BasisSet = Map String [ContractedGaussian] 
 
 data ContractedGaussian = 
@@ -27,8 +30,11 @@ getAtomicOrbitals :: BasisSet -> Atom -> Basis
 getAtomicOrbitals b a =
     concat shells
     where
-      atomBasis = b ! (atomicSymbol a)
-      shells = map shell atomBasis
+      atomicBasisFunctions = b ! (atomicSymbol a)
+      shells = map shell atomicBasisFunctions
+      -- c = center
+      -- p = primitives
+      -- i = shell i.e. the 2 in 2S
       shell (ContractedGaussian i k p c) =
         case k of "p" -> [ng (P i X) p c, ng (P i Y) p c, ng (P i Z) p c]
                   "s" -> [ng (S i) p c]
@@ -43,20 +49,12 @@ gaussianFromKind c (S _) alpha = Gaussian c alpha 0 0 0
 
 sto3GBasis :: IO (Maybe BasisSet)
 sto3GBasis = 
-    decode <$> getJSON :: IO (Maybe BasisSet)
-
-jsonFile :: FilePath
-jsonFile = "basis/STO-3G.json"
-
-getJSON :: IO B.ByteString
-getJSON = B.readFile jsonFile
-
+    decode <$> (B.readFile sto3GFile ):: IO (Maybe BasisSet)
 
 formBasis :: String -> Geometry -> IO Basis
 formBasis "STO-3G" g = do
     bset <- sto3GBasis
     case bset of
       Just b -> return $ concat (map (getAtomicOrbitals b) g)
-      Nothing -> return $ undefined
-
+      Nothing -> fail $ "Error reading STO-3G basis set at: " ++ sto3GFile 
 

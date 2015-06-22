@@ -5,7 +5,7 @@ import Point3D
 
 data Gaussian = 
   Gaussian { center :: Point3D
-           , alpha :: Double
+           , α :: Double
            , xIndex :: Int
            , yIndex :: Int
            , zIndex :: Int
@@ -13,10 +13,10 @@ data Gaussian =
 
 instance Show Gaussian where
     show g 
-      | xIndex g > 0 = "<Px: " ++ (show $ alpha g) ++ ">"
-      | yIndex g > 0 = "<Py: " ++ (show $ alpha g) ++ ">"
-      | zIndex g > 0 = "<Pz: " ++ (show $ alpha g) ++ ">"
-      | otherwise = "<S: " ++ (show $ alpha g) ++ ">"
+      | xIndex g > 0 = "<Px: " ++ (show $ α g) ++ ">"
+      | yIndex g > 0 = "<Py: " ++ (show $ α g) ++ ">"
+      | zIndex g > 0 = "<Pz: " ++ (show $ α g) ++ ">"
+      | otherwise = "<S: " ++ (show $ α g) ++ ">"
 
 
 instance Ord Gaussian where
