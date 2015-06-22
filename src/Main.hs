@@ -4,6 +4,7 @@ import Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString as B
 import Control.Monad (when)
 import System.Environment
+import Geometry (Geometry)
 import HartreeFock
 import System.Console.Docopt
 import Shell
@@ -13,8 +14,10 @@ import qualified Test as T
 patterns :: Docopt
 patterns = [docoptFile|USAGE.txt|]
 
+getArgOrExit :: Arguments -> Option -> IO String
 getArgOrExit = getArgOrExitWith patterns
 
+formGeometry :: FilePath -> IO Geometry
 formGeometry path = do
   file <- B.readFile $ path
   case parseOnly xyzParser file of

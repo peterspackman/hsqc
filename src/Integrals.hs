@@ -28,21 +28,22 @@ centerOfProduct Gaussian {α = α1, center = c1}
     ddiv (add (dmult α1 c1) (dmult α2 c2)) (α1 + α2)
 {-# INLINE centerOfProduct #-}
 
-normalizationFactor Gaussian {α = a, xIndex = l, yIndex = m, zIndex = n} =
-    ((fromIntegral (f1 * f2 * f3)) * ((pi / (2.0*a))**1.5)
-    / (fromIntegral (2^(2*(lmn))) * a^lmn)) ** (-0.5)
+normalizationFactor Gaussian {α = α, momenta = (l, m, n) } =
+    ((fromIntegral (f1 * f2 * f3)) * ((pi / (2.0*α))**1.5)
+    / (fromIntegral (2^(2*(lmn))) * α^lmn)) ** (-0.5)
     where 
       f = factorial
       lmn = l + m + n
       f1 = f (2*l - 1)
       f2 = f (2*m - 1)
       f3 = f (2*n - 1)
+
 {-# INLINE normalizationFactor #-}
 
 pType g = pAxis g > 0
 
 pAxis :: Gaussian -> Int
-pAxis Gaussian {xIndex = l, yIndex = m, zIndex = n} 
+pAxis Gaussian {momenta = (l,m,n)} 
   | l > 0 && m == 0 && n == 0 = 1
   | l == 0 && m > 0 && n == 0 = 2
   | l == 0 && m == 0 && n > 0 = 3
@@ -50,7 +51,7 @@ pAxis Gaussian {xIndex = l, yIndex = m, zIndex = n}
 {-# INLINE pAxis #-}
 
 pOrbitalAxis :: Gaussian -> Maybe Axis
-pOrbitalAxis Gaussian {xIndex = l, yIndex = m, zIndex = n} 
+pOrbitalAxis Gaussian {momenta = (l,m,n)} 
   | l > 0 && m == 0 && n == 0 = Just X
   | l == 0 && m > 0 && n == 0 = Just Y
   | l == 0 && m == 0 && n > 0 = Just Z

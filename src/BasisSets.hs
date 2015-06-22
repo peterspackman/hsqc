@@ -6,7 +6,7 @@ import Data.Map (Map, (!))
 import Gaussian hiding (center)
 import Data.Aeson
 import Orbitals
-import Point3D hiding (X, Y, Z)
+import Point3D hiding (X,Y,Z)
 import Shell
 import qualified Data.ByteString.Lazy as B
 
@@ -40,16 +40,19 @@ getAtomicOrbitals b a =
                   "s" -> [ng (S i) p c]
       ng k p c = Shell a k c (map (gaussianFromKind (center a) k) p)
 
+
 gaussianFromKind :: Point3D -> Orbital -> Double -> Gaussian
-gaussianFromKind c (P _ ax) alpha 
-  | ax == X = Gaussian c alpha 1 0 0
-  | ax == Y = Gaussian c alpha 0 1 0
-  | ax == Z = Gaussian c alpha 0 0 1
-gaussianFromKind c (S _) alpha = Gaussian c alpha 0 0 0 
+gaussianFromKind c (P _ ax) α 
+  | ax == X = Gaussian c α (1,0,0)
+  | ax == Y = Gaussian c α (0,1,0)
+  | ax == Z = Gaussian c α (0,0,1)
+gaussianFromKind c (S _) α = Gaussian c α (0,0,0)
+
 
 sto3GBasis :: IO (Maybe BasisSet)
 sto3GBasis = 
     decode <$> (B.readFile sto3GFile ):: IO (Maybe BasisSet)
+
 
 formBasis :: String -> Geometry -> IO Basis
 formBasis "STO-3G" g = do
@@ -57,4 +60,3 @@ formBasis "STO-3G" g = do
     case bset of
       Just b -> return $ concat (map (getAtomicOrbitals b) g)
       Nothing -> fail $ "Error reading STO-3G basis set at: " ++ sto3GFile 
-

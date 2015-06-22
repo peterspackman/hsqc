@@ -16,7 +16,7 @@ import Point3D (Point3D, euclidean)
 maxIterations = 100
 
 data Energies = Energies 
-              { e :: Double
+              { ehf :: Double
               , ee :: Double
               , enn :: Double
               , een :: Double
@@ -42,7 +42,7 @@ instance Show System where
 
 instance Show Energies where
   show x = 
-    "Total energy: " ++ (show $ e x)
+    "Total energy: " ++ (show $ ehf x)
     ++ "\nElectronic energy: " ++ (show $ ee x)
     ++ "\nNuclear repulsion energy: " ++ (show $ enn x)
     ++ "\nKinetic energy: " ++ (show $ ek x)
@@ -78,9 +78,9 @@ scf System { atoms = a
            , nElectrons = ne
            , kinetic = k
            , nuclear = v
-           , energies = oldEHF
+           , energies = old
            } =
-    (System a ne t d h s k v ehf done)
+    (System a ne t d h s k v energies done)
     where
       pmat = reshape n (fromList (Repa.toList ρ ))
       g = twoBodyFockMatrix t ρ 
@@ -88,13 +88,13 @@ scf System { atoms = a
       d = densityMatrix ne c
       f = fockMatrix h g 
       !c = (coefficientMatrix f s)
-      done = (abs ((e ehf) - (e oldEHF))) < 1e-12
+      done = (abs ((ehf energies) - (ehf old))) < 1e-12
       -- calculate energies
       electronicEnergy = (sumElements (pmat * (h + f)))
-      newEnergies Energies { enn = enn} =
+      updateEnergies Energies { enn = enn } =
         Energies (enn + electronicEnergy) electronicEnergy enn 
                  (nuclearAttractionEnergy v pmat) (kineticEnergy k pmat)
-      ehf = newEnergies oldEHF
+      energies = updateEnergies old
 
 
 -- Appear to be counting the energy twice, may need a fix
