@@ -4,7 +4,7 @@ import Data.Attoparsec.ByteString.Char8
 import qualified Data.ByteString as B
 import Control.Monad (when)
 import System.Environment
-import Geometry (Geometry)
+import Geometry (Geometry, unitConvert)
 import HartreeFock
 import System.Console.Docopt
 import Shell
@@ -31,8 +31,9 @@ main = do
   when (args `isPresent` (command "scf")) $ do
     path <- args `getArgOrExit` (argument "file")
     geom <- formGeometry path
-    basis <- formBasis "STO-3G" geom
-    let (final, steps) = (calculateSCF (initSystem geom basis)) -- convergence at 12 decimal points
+    let g = unitConvert geom
+    basis <- formBasis "STO-3G" g
+    let (final, steps) = (calculateSCF (initSystem g basis)) -- convergence at 12 decimal points
     putStrLn $ "Convergence after " ++ (show steps) ++ " cycles:"
     print final
 

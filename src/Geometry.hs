@@ -14,7 +14,14 @@ instance Show Atom where
 
 type Geometry = [Atom]
 
+bohrPerAngstrom = 1.889725989
 
+unitConvert :: Geometry -> Geometry
+unitConvert g =
+    map c g
+    where
+      c Atom {center = c, element = e} =
+        Atom (dmult bohrPerAngstrom c) e
 atomicNumber :: Atom -> Int
 atomicNumber Atom {element = e} = E.atomicNumber e
 
