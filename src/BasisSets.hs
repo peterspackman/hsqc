@@ -39,7 +39,7 @@ getAtomicOrbitals b a =
         case k of "p" -> [ng (P i X) p c, ng (P i Y) p c, ng (P i Z) p c]
                   "s" -> [ng (S i) p c]
       ng k p c = 
-        (Shell a k c (map (gaussianFromKind (center a) k) p))
+        (Shell a k (zip c (map (gaussianFromKind (center a) k) p)))
 
 
 gaussianFromKind :: Point3D -> Orbital -> Double -> Gaussian

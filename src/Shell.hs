@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings, DeriveGeneric, BangPatterns #-}
 module Shell where
 import Geometry
 import Orbitals
@@ -7,9 +7,10 @@ import Gaussian hiding (center)
 data Shell =
     Shell { atom :: Atom
           , orbital :: Orbital
-          , weights :: [Double] -- contraction coefficients
-          , gaussians :: [Gaussian] -- primative gaussian functions
+          , cgfs :: [CGF] -- contraction coefficients
           } deriving (Show, Eq)
+
+type CGF = (Double, Gaussian)
 
 type Basis = [Shell]
 

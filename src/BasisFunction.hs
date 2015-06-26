@@ -11,7 +11,7 @@ module BasisFunction ( Basis
 
 import Numeric.LinearAlgebra hiding (Gaussian)
 import Data.Array.Repa hiding ((!), (++), sum, map, zipWith, replicate, reshape, toList)
-import qualified Data.Array.Repa as Repa (map, reshape, toList)
+import qualified Data.Array.Repa as Repa ((!), map, reshape, toList)
 import Matrix (Matrix4D, force)
 import Control.Applicative
 import Data.Vector ((!))
@@ -28,24 +28,25 @@ import Element (atomicNumber, electronConfig)
 
 contraction :: Basis -> ([Gaussian] -> Double) -> Double
 contraction !bs integral =
-    sum $ map (f . unzip) (sequence $ map contractionPairs bs)
+    sum $ map (f . unzip) (sequence $ map cgfs bs)
     where 
-      f (!ds, !gs) = (product ds) * (integral gs) 
-      contractionPairs Shell {weights = c, gaussians = g} =
-        zip c g
+      f (!weights, !primitives) = (product weights) * (integral primitives) 
+{-# INLINE contraction #-}
 
 overlapMatrix :: Basis -> Matrix Double
 overlapMatrix basis =
-  reshape (length basis) $! fromList $ overlap <$> basis <*> basis
+  reshape (length basis) $! fromList $ overlap <$> shellPairs
   where
-    overlap b1 b2 = contraction [b1,b2] overlapList
+    shellPairs = [[a,b] | a <- basis, b <- basis]
+    overlap pair = contraction pair overlapList
     overlapList (g1:g2:[]) = overlapIntegral g1 g2
 
 kineticMatrix :: Basis -> Matrix Double
-kineticMatrix b =
-  reshape (length b) $! fromList $ kinetic <$> b <*> b
+kineticMatrix basis =
+  reshape (length basis) $! fromList $ kinetic <$> shellPairs
   where
-    kinetic b1 b2 = contraction [b1, b2] kineticList
+    shellPairs = [[a,b] | a <- basis, b <- basis]
+    kinetic pair = contraction pair kineticList
     kineticList (g1:g2:[]) = kineticIntegral g1 g2
  
 nuclearMatrix :: Geometry -> Basis -> Matrix Double
@@ -61,13 +62,21 @@ nuclearMatrix atoms b =
     allPairs a b = (,) <$> a <*> b
 
 twoElectronMatrix :: Basis -> Matrix4D Double
-twoElectronMatrix basis =
-    force $ fromFunction (Z:.n:.n:.n:.n) valAtIndex
+twoElectronMatrix basis = computeS $ fromFunction (Z:.n:.n:.n:.n) fromCache
     where
       !vbasis = V.fromList basis
-      valAtIndex = (\(Z:.i:.j:.k:.l) -> twoElectron (vbasis ! i) (vbasis ! j) (vbasis ! k) (vbasis ! l))
+      eri ix@(Z:.i:.j:.k:.l) = 
+         if ix == (sortIndex ix) then
+           twoElectron (vbasis ! i) (vbasis ! j) (vbasis ! k) (vbasis ! l)
+         else 0.0 -- 0.0 is a dummy value
+      !uniqueInts = force $ fromFunction (Z:.n:.n:.n:.n) eri
+      fromCache ix = let ixs = sortIndex ix in (Repa.!) uniqueInts ixs
+      sortIndex (Z:.i:.j:.k:.l) = 
+          let (a:b:c:d:[]) = concat $ sort (sort <$> [[i,j],[k,l]]) in
+          (Z:.a:.b:.c:.d)
+      {-# INLINE sortIndex #-}
       !n = V.length vbasis :: Int
-      twoElectron b1 b2 b3 b4 = contraction [b1,b2,b3,b4] twoElectronList
+      twoElectron !b1 !b2 !b3 !b4 = (contraction [b1,b2,b3,b4] twoElectronList)
       twoElectronList (g1:g2:g3:g4:[]) = 
         let (a:b:c:d:[]) = sortBasisFunctions g1 g2 g3 g4 in
           (twoElectronIntegral a b c d)
@@ -80,6 +89,7 @@ sortBasisFunctions b1 b2 b3 b4 =
     numP a b
       | pCount a > pCount b = LT
       | otherwise = GT
+{-#INLINE sortBasisFunctions #-}
 
 
 -- smear the electrons across the shells,

@@ -24,6 +24,8 @@ formGeometry path = do
       Right geom -> return geom
       Left err -> fail $ "Error while parsing " ++ (show path) ++ ": " ++ err
 
+basisSet :: String
+basisSet = "STO-3G"
 
 main :: IO ()
 main = do
@@ -32,7 +34,8 @@ main = do
     path <- args `getArgOrExit` (argument "file")
     geom <- formGeometry path
     let g = unitConvert geom
-    basis <- formBasis "STO-3G" g
+    basis <- formBasis basisSet g
+    putStrLn $ "Using " ++ (show basisSet) ++ " basis: " ++ (show $ length basis) ++ " basis functions."
     let (final, steps) = (calculateSCF (initSystem g basis)) -- convergence at 12 decimal points
     putStrLn $ "Convergence after " ++ (show steps) ++ " cycles:"
     print final

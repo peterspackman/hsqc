@@ -15,14 +15,15 @@ boys :: Double -> Double -> Double
 boys 0 x
   | x > 0.0e-5 = 0.5 * sqrt (pi / x) * GSL.erf (sqrt x)
   | otherwise = 1.0
-
 boys m x = k `seq` k / d
   where
     k = GSL.hyperg_1F1 (m + 0.5) (m + 1.5) (-x)
     d = (2 * m) + 1
+{-# INLINE boys #-}
 
 factorial :: (Enum a, Num a) => a -> a
 factorial n = product [1..n]
+{-# INLINE factorial #-}
 
 
 centerOfProduct :: Gaussian -> Gaussian -> Point3D
