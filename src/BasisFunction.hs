@@ -25,6 +25,7 @@ import Gaussian
 import Orbitals hiding (X, Y, Z)
 import Element (atomicNumber, electronConfig)
 
+ε = 1e-8
 
 contraction :: Basis -> ([Gaussian] -> Double) -> Double
 contraction !bs integral =
@@ -62,20 +63,31 @@ nuclearMatrix atoms b =
     allPairs a b = (,) <$> a <*> b
 
 twoElectronMatrix :: Basis -> Matrix4D Double
-twoElectronMatrix basis = computeS $ fromFunction (Z:.n:.n:.n:.n) fromCache
+twoElectronMatrix basis = computeS $ backpermute sh sortIndex uniqueInts
     where
+      !n = V.length vbasis :: Int
+      sh = (Z:.n:.n:.n:.n)
       !vbasis = V.fromList basis
+      -- compute the integral at index ix
       eri ix@(Z:.i:.j:.k:.l) = 
          if ix == (sortIndex ix) then
-           twoElectron (vbasis ! i) (vbasis ! j) (vbasis ! k) (vbasis ! l)
-         else 0.0 -- 0.0 is a dummy value
-      !uniqueInts = force $ fromFunction (Z:.n:.n:.n:.n) eri
-      fromCache ix = let ixs = sortIndex ix in (Repa.!) uniqueInts ixs
+            -- Cauchy-Schwarz inequality
+            if (gab (Z:.i:.j)) * (gab (Z:.k:.l) ) > ε then
+              twoElectron (vbasis ! i) (vbasis ! j) (vbasis ! k) (vbasis ! l)
+            else 0.0
+         else 0.0 -- 0.0 is a dummy value to fill unique array
+      -- calculate all the unique (under permutation of basis functions)
+      -- integrals
+      uniqueInts = force $ fromFunction sh eri
+      -- helper function to get twoCenter eri for ignoring tiny integrals
+      gab ix = (Repa.!) twoCenters ix
+      -- cache of upper bounds for cauchy-schwarz
+      twoCenters = computeUnboxedS $ fromFunction (Z:.n:.n) (\(Z:.i:.j) -> 
+          twoElectron (vbasis ! i) (vbasis ! j) (vbasis ! i) (vbasis !j))
       sortIndex (Z:.i:.j:.k:.l) = 
           let (a:b:c:d:[]) = concat $ sort (sort <$> [[i,j],[k,l]]) in
           (Z:.a:.b:.c:.d)
       {-# INLINE sortIndex #-}
-      !n = V.length vbasis :: Int
       twoElectron !b1 !b2 !b3 !b4 = (contraction [b1,b2,b3,b4] twoElectronList)
       twoElectronList (g1:g2:g3:g4:[]) = 
         let (a:b:c:d:[]) = sortBasisFunctions g1 g2 g3 g4 in

@@ -7,6 +7,7 @@ import System.Environment
 import Geometry (Geometry, unitConvert)
 import HartreeFock
 import System.Console.Docopt
+import System.CPUTime
 import Shell
 import BasisSets
 import qualified Test as T
@@ -39,4 +40,6 @@ main = do
     let (final, steps) = (calculateSCF (initSystem g basis)) -- convergence at 12 decimal points
     putStrLn $ "Convergence after " ++ (show steps) ++ " cycles:"
     print final
+    time <- getCPUTime
+    putStrLn $ "cpu time: " ++ (show $ (fromIntegral time) * 1e-12) ++"s"
 
