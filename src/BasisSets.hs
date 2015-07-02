@@ -30,7 +30,7 @@ getAtomicOrbitals :: BasisSet -> Atom -> Basis
 getAtomicOrbitals b a =
     concat shells
     where
-      atomicBasisFunctions = b ! (atomicSymbol a)
+      atomicBasisFunctions = b ! (show (atomicSymbol a))
       shells = map shell atomicBasisFunctions
       -- c = center
       -- p = primitives

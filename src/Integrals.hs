@@ -398,3 +398,4 @@ twoElectronIntegral a b c d
     !η = α c + α d
     !ρ = ζ + η
 {-# INLINE twoElectronIntegral #-}
+

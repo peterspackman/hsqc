@@ -10,7 +10,7 @@ data Atom = Atom { center :: Point3D
 
 instance Show Atom where
     show a = 
-      "" ++ (Element.symbol $ element a) ++ ": " ++ show (center a)
+      "" ++ (show (Element.symbol $ element a)) ++ ": " ++ show (center a)
 
 type Geometry = [Atom]
 
@@ -25,5 +25,5 @@ unitConvert g =
 atomicNumber :: Atom -> Int
 atomicNumber Atom {element = e} = E.atomicNumber e
 
-atomicSymbol :: Atom -> String
+atomicSymbol :: Atom -> AtomicSymbol
 atomicSymbol Atom {element = e} = E.symbol e
