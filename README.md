@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/peterspackman/hsqc.svg)]
+![Build Status](https://travis-ci.org/peterspackman/hsqc.svg)
 # hsqc
 haskell ab-initio quantum chemistry
 
