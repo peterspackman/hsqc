@@ -10,7 +10,6 @@ import System.Console.Docopt
 import System.CPUTime
 import Shell
 import BasisSets
-import qualified Test as T
 
 patterns :: Docopt
 patterns = [docoptFile|USAGE.txt|]
