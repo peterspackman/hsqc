@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings, DeriveGeneric #-}
 module BasisSets where
 import GHC.Generics (Generic)
+import Control.Applicative ((<$>))
 import Geometry
 import Data.Map (Map, (!))
 import Gaussian hiding (center)

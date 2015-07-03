@@ -9,6 +9,7 @@ module Integrals ( twoElectronIntegral
                   where
 import Point3D (Point3D, (!), euclidean2, dmult, ddiv, add, sub)
 import Gaussian
+import Control.Applicative ((<$>))
 import qualified Numeric.GSL.Special as GSL
 
 boys :: Double -> Double -> Double

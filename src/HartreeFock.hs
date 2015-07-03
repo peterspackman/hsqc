@@ -1,5 +1,6 @@
 {-# LANGUAGE MultiParamTypeClasses, BangPatterns #-}
 module HartreeFock where
+import Control.Applicative ((<$>))
 import Data.List (sortBy)
 import Numeric.LinearAlgebra hiding (Element)
 import qualified Data.Vector.Storable as V
