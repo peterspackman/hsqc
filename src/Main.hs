@@ -41,4 +41,3 @@ main = do
     print final
     time <- getCPUTime
     putStrLn $ "cpu time: " ++ (show $ (fromIntegral time) * 1e-12) ++"s"
-
