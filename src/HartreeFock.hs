@@ -11,7 +11,7 @@ import Shell
 import Element hiding (atomicNumber)
 import Geometry
 import Data.List (unfoldr)
-import Matrix (Matrix2D, genEigSH, fromDiagonal, force, row, col)
+import Matrix (Matrix2D, Matrix4D, genEigSH, fromDiagonal, force, row, col)
 import Point3D (Point3D, euclidean)
 
 maxIterations = 100
@@ -26,7 +26,7 @@ data Energies = Energies
 
 data System = System { atoms :: Geometry
                      , nElectrons :: Int
-                     , twoBodyIntegrals :: Array U DIM4 Double
+                     , twoBodyIntegrals :: Matrix4D Double
                      , density :: Matrix2D Double
                      , hcore :: Matrix Double
                      , overlap :: Matrix Double
@@ -49,7 +49,7 @@ instance Show Energies where
 
 
 -- j == Coulomb, k == exchange
-twoBodyFockMatrix :: Matrix2D Double -> Matrix2D Double) -> Matrix2D Double
+twoBodyFockMatrix :: Matrix4D Double -> Matrix2D Double -> Matrix2D Double
 twoBodyFockMatrix twoElectron p =
   force $ fromFunction (extent p) g
   where
@@ -88,7 +88,6 @@ scf System { atoms = a
       d = densityMatrix ne c
       f = fockMatrix h g
       !c = (coefficientMatrix f s)
-
       done = (abs ((ehf energies) - (ehf old))) < 1e-12
       -- calculate energies
       electronicEnergy = (sumElements (pmat * (h + f)))

@@ -7,7 +7,7 @@ module Integrals ( twoElectronIntegral
                  , boys
                  )
                   where
-import Point3D (Point3D, (!), euclidean2, dmult, ddiv, add, sub)
+import Point3D (Point3D, (!), euclidean2, scale, scaleDiv, add, sub)
 import Gaussian
 import Control.Applicative ((<$>))
 import qualified Numeric.GSL.Special as GSL
@@ -28,7 +28,7 @@ factorial n = product [1..n]
 
 centerOfProduct :: Gaussian -> Gaussian -> Point3D
 centerOfProduct Gaussian {α = α1, center = c1} Gaussian {α = α2, center = c2} =
-    ddiv (add (dmult α1 c1) (dmult α2 c2)) (α1 + α2)
+    scaleDiv (add (scale α1 c1) (scale α2 c2)) (α1 + α2)
 {-# INLINE centerOfProduct #-}
 
 

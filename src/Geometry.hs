@@ -9,7 +9,7 @@ data Atom = Atom { center :: Point3D
                  } deriving (Eq)
 
 instance Show Atom where
-    show a = 
+    show a =
       "" ++ (show (Element.symbol $ element a)) ++ ": " ++ show (center a)
 
 type Geometry = [Atom]
@@ -21,7 +21,7 @@ unitConvert g =
     map c g
     where
       c Atom {center = c, element = e} =
-        Atom (dmult bohrPerAngstrom c) e
+        Atom (scale bohrPerAngstrom c) e
 atomicNumber :: Atom -> Int
 atomicNumber Atom {element = e} = E.atomicNumber e
 

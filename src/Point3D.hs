@@ -38,7 +38,7 @@ instance Eq Point3D where
     (==) (Point3D a b c) (Point3D a' b' c') = (a == a') && (b == b') && (c == c')
 
 (!) :: Point3D -> Int -> Double
-(!) (Point3D x y z) i = 
+(!) (Point3D x y z) i =
   case i of 1 -> x
             2 -> y
             3 -> z
@@ -82,11 +82,10 @@ euclidean2 :: Point3D -> Point3D -> Double
 {-# INLINE euclidean2 #-}
 euclidean2 a b = norm2 (sub a b)
 
-dmult :: Double -> Point3D -> Point3D
-{-# INLINE dmult #-}
-dmult d (Point3D a b c) = Point3D (a*d) (b*d) (c*d)
+scale :: Double -> Point3D -> Point3D
+{-# INLINE scale #-}
+scale d (Point3D a b c) = Point3D (a*d) (b*d) (c*d)
 
-ddiv :: Point3D -> Double -> Point3D
-{-# INLINE ddiv #-}
-ddiv (Point3D a b c) d = Point3D (a/d) (b/d) (c/d)
-
+scaleDiv :: Point3D -> Double -> Point3D
+{-# INLINE scaleDiv #-}
+scaleDiv (Point3D a b c) d = Point3D (a/d) (b/d) (c/d)
