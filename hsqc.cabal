@@ -27,7 +27,6 @@ executable hsqc
     -funbox-strict-fields
     -fsimpl-tick-factor=500
     -optlo-O3
-    -fllvm
   build-depends:       base >=4.6 && <4.9,
                        split >= 0.2,
                        random >= 1.0,
