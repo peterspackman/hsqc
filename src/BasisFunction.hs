@@ -10,7 +10,7 @@ module BasisFunction ( Basis
                      ) where
 
 import Control.Applicative ((<$>))
-import Numeric.LinearAlgebra hiding (Gaussian)
+import Numeric.LinearAlgebra hiding (Gaussian, (!))
 import Data.Array.Repa hiding ((!), (++), sum, map, zipWith, replicate, reshape, toList)
 import qualified Data.Array.Repa as Repa ((!), map, reshape, toList)
 import Matrix (Matrix4D, force)

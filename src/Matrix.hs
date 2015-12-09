@@ -12,7 +12,7 @@ import Data.Array.Repa.Algorithms.Randomish (randomishDoubleArray)
 import Data.List
 import Control.Monad.Identity (runIdentity)
 import qualified Data.Text as T
-import Numeric.LinearAlgebra hiding (Element)
+import Numeric.LinearAlgebra hiding (Element, row, col)
 
 
 type Matrix2D a = R.Array R.U R.DIM2 a 
@@ -53,11 +53,11 @@ fromDiagonal d =
       n = length d
 
 --
-genEigSH :: Matrix Double -> Matrix Double -> Matrix Double
+genEigSH :: Herm Double -> Herm Double -> Matrix Double
 genEigSH a b =
     (fromColumns (snd . unzip $ sortedVals))
   where
-    (values, vectors) = geigSH' a b
+    (values, vectors) = geigSH a b
     sortedVals = sortBy cmpFirst (zip (Numeric.LinearAlgebra.toList values) (toColumns vectors)) 
     cmpFirst (a1,b1) (a2,b2) = compare a1 a2
 

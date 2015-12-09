@@ -14,16 +14,16 @@ import qualified Data.ByteString.Lazy as B
 sto3GFile :: FilePath
 sto3GFile = "basis/STO-3G.json"
 
-type BasisSet = Map String [ContractedGaussian] 
+type BasisSet = Map String [ContractedGaussian]
 
-data ContractedGaussian = 
+data ContractedGaussian =
   ContractedGaussian { shell :: Int
                      , kind :: String
                      , primitives :: [Double]
                      , coefficients :: [Double]
 } deriving (Show, Generic)
 
-instance FromJSON ContractedGaussian 
+instance FromJSON ContractedGaussian
 instance ToJSON ContractedGaussian
 
 
@@ -39,20 +39,22 @@ getAtomicOrbitals b a =
       shell (ContractedGaussian i k p c) =
         case k of "p" -> [ng (P i X) p c, ng (P i Y) p c, ng (P i Z) p c]
                   "s" -> [ng (S i) p c]
-      ng k p c = 
+      ng k p c =
         (Shell a k (zip c (map (gaussianFromKind (center a) k) p)))
 
 
 gaussianFromKind :: Point3D -> Orbital -> Double -> Gaussian
-gaussianFromKind c (P _ ax) α 
+gaussianFromKind c (P _ ax) α
   | ax == X = Gaussian c α (1,0,0)
   | ax == Y = Gaussian c α (0,1,0)
   | ax == Z = Gaussian c α (0,0,1)
 gaussianFromKind c (S _) α = Gaussian c α (0,0,0)
 
 
+-- Need to write code enabling split-valence basis sets
+
 sto3GBasis :: IO (Maybe BasisSet)
-sto3GBasis = 
+sto3GBasis =
     decode <$> (B.readFile sto3GFile ):: IO (Maybe BasisSet)
 
 
@@ -61,4 +63,4 @@ formBasis "STO-3G" g = do
     bset <- sto3GBasis
     case bset of
       Just b -> return $ concat (map (getAtomicOrbitals b) g)
-      Nothing -> fail $ "Error reading STO-3G basis set at: " ++ sto3GFile 
+      Nothing -> fail $ "Error reading STO-3G basis set at: " ++ sto3GFile

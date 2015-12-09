@@ -2,7 +2,7 @@
 module HartreeFock where
 import Control.Applicative ((<$>))
 import Data.List (sortBy)
-import Numeric.LinearAlgebra hiding (Element)
+import Numeric.LinearAlgebra hiding (Element, row, col, All)
 import qualified Data.Vector.Storable as V
 import Data.Array.Repa hiding ((++), sum, map, zipWith, replicate, reshape, toList)
 import qualified Data.Array.Repa as Repa (sumAllS, map, reshape, toList, transpose)
@@ -107,15 +107,15 @@ nuclearRepulsionEnergy atoms =
 
 
 coefficientMatrix :: Matrix Double -> Matrix Double -> Matrix Double
-coefficientMatrix f s = genEigSH f s
+coefficientMatrix f s = genEigSH (trustSym f) (trustSym s)
 
 densityMatrix :: Int -> Matrix Double -> Matrix2D Double
 densityMatrix nElectrons cMatrix =
     force $ fromFunction (Z:.(rows cMatrix::Int):.(cols cMatrix::Int)) vals
     where
       c = (fromColumns (take (quot nElectrons 2) (toColumns cMatrix)))
-      d = c <> (trans c)
-      vals = (\(Z:.i:.j) -> (d @@> (i, j)))
+      d = c <> (tr c)
+      vals = (\(Z:.i:.j) -> (d `atIndex` (i, j)))
 
 initSystem :: Geometry -> Basis -> System
 initSystem atoms basis =
