@@ -20,20 +20,17 @@ boys m x = k `seq` k / d
   where
     k = GSL.hyperg_1F1 (m + 0.5) (m + 1.5) (-x)
     d = (2 * m) + 1
-{-# INLINE boys #-}
 
 factorial :: (Enum a, Num a) => a -> a
 factorial n = product [1..n]
-{-# INLINE factorial #-}
 
 centerOfProduct :: Gaussian -> Gaussian -> Point3D
 centerOfProduct Gaussian {α = α1, center = c1} Gaussian {α = α2, center = c2} =
     scaleDiv (add (scale α1 c1) (scale α2 c2)) (α1 + α2)
-{-# INLINE centerOfProduct #-}
 
 
-normalizationFactor :: Gaussian -> Double
-normalizationFactor Gaussian {α = α, momenta = (l, m, n) } =
+normFactor :: Gaussian -> Double
+normFactor Gaussian {α = α, momenta = (l, m, n) } =
   ((fromIntegral (f1 * f2 * f3)) * ((pi / (2.0 * α)) ** 1.5)
   / (fromIntegral (2^(2*lmn)) * α^lmn)) ** (-0.5)
     where
@@ -42,7 +39,6 @@ normalizationFactor Gaussian {α = α, momenta = (l, m, n) } =
       f1 = f (2*l - 1)
       f2 = f (2*m - 1)
       f3 = f (2*n - 1)
-{-# INLINE normalizationFactor #-}
 
 
 pAxis :: Gaussian -> Int
@@ -51,21 +47,17 @@ pAxis Gaussian {momenta = (l,m,n)}
   | l == 0 && m > 0 && n == 0 = 2
   | l == 0 && m == 0 && n > 0 = 3
   | otherwise = 0
-{-# INLINE pAxis #-}
 
 pType :: Gaussian -> Bool
 pType g = pAxis g > 0
-{-# INLINE pType #-}
 sType :: Gaussian -> Bool
 sType g = pAxis g == 0
-{-# INLINE sType #-}
 
 
 δ :: Eq a => a -> a -> Double
 δ i j
   | i == j = 1.0
   | otherwise = 0.0
-{-# INLINE δ #-}
 
 
 s :: Int -> Int -> Gaussian -> Gaussian -> Double
@@ -82,13 +74,12 @@ s i j a b
   where
     s00ab = s 0 0 a b
     !dij = δ i j
-    !n1 = normalizationFactor a
-    !n2 = normalizationFactor b
+    !n1 = normFactor a
+    !n2 = normFactor b
     !α1 = α a
     !α2 = α b
     !c1 = center a
     !c2 = center b
-{-# INLINE s #-}
 
 
 ell :: Int -> Int -> Point3D -> Gaussian -> Gaussian -> Double
@@ -108,7 +99,6 @@ ell i j c a b
     p = centerOfProduct a b
     α1 = α a
     α2 = α b
-{-# INLINE ell #-}
 
 
 k :: Int -> Int -> Gaussian -> Gaussian -> Double
@@ -122,13 +112,12 @@ k i j a b
   | otherwise =
     (δ i j) * α1 * α2 / (α1 + α2)^2
   where
-    n1 = normalizationFactor a
-    n2 = normalizationFactor b
+    n1 = normFactor a
+    n2 = normFactor b
     !α1 = α a
     !α2 = α b
     !c1 = center a
     !c2 = center b
-{-# INLINE k #-}
 
 
 -- ABOVE HAS BEEN CHECKED
@@ -257,7 +246,6 @@ g (i,j,k,l) (a,b,c,d) =
     ζ = α a + α b
     η = α c + α d
     ρ = ζ + η
-{-# INLINE g #-}
 
 
 overlapIntegral :: Gaussian -> Gaussian -> Double
@@ -277,7 +265,6 @@ overlapIntegral a b
   where
     i = pAxis a
     j = pAxis b
-{-# INLINE overlapIntegral #-}
 
 
 kineticIntegral :: Gaussian -> Gaussian -> Double
@@ -294,7 +281,6 @@ kineticIntegral a b
   where
     i = pAxis a
     j = pAxis b
-{-# INLINE kineticIntegral #-}
 
 
 nuclearIntegral :: [(Double, Point3D)] -> Gaussian -> Gaussian -> Double
@@ -327,7 +313,6 @@ nuclearIntegral nuclearCharges a b
     α2 = α b
     i = pAxis a
     j = pAxis b
-{-# INLINE nuclearIntegral #-}
 
 
 twoElectronIntegral :: Gaussian -> Gaussian -> Gaussian -> Gaussian -> Double
@@ -397,4 +382,3 @@ twoElectronIntegral a b c d
     !ζ = α a + α b
     !η = α c + α d
     !ρ = ζ + η
-{-# INLINE twoElectronIntegral #-}

@@ -33,7 +33,6 @@ contraction !bs integral =
     sum $ map (f . unzip) (sequence $ map cgfs bs)
     where 
       f (!weights, !primitives) = (product weights) * (integral primitives) 
-{-# INLINE contraction #-}
 
 overlapMatrix :: Basis -> Matrix Double
 overlapMatrix basis =
@@ -73,9 +72,9 @@ twoElectronMatrix basis = computeS $ backpermute sh sortIndex uniqueInts
       eri ix@(Z:.i:.j:.k:.l) = 
          if ix == (sortIndex ix) then
             -- Cauchy-Schwarz inequality
-            if (gab (Z:.i:.j)) * (gab (Z:.k:.l) ) > ε then
-              twoElectron (vbasis ! i) (vbasis ! j) (vbasis ! k) (vbasis ! l)
-            else 0.0
+            -- if (gab (Z:.i:.j)) * (gab (Z:.k:.l) ) > ε then
+            twoElectron (vbasis ! i) (vbasis ! j) (vbasis ! k) (vbasis ! l)
+            -- else 0.0
          else 0.0 -- 0.0 is a dummy value to fill unique array
       -- calculate all the unique (under permutation of basis functions)
       -- integrals
@@ -102,7 +101,6 @@ sortBasisFunctions b1 b2 b3 b4 =
     numP a b
       | pCount a > pCount b = LT
       | otherwise = GT
-{-#INLINE sortBasisFunctions #-}
 
 
 -- smear the electrons across the shells,
